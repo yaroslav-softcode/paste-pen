@@ -1,0 +1,16 @@
+# Временные файлы Python
+__pycache__/
+*.pyc
+
+# Файлы сборки PyInstaller
+build/
+dist/
+*.spec
+
+# Папка виртуального окружения
+.venv/
+venv/
+
+# Системные файлы Windows
+Thumbs.db
+desktop.ini
