@@ -14,3 +14,4 @@ venv/
 # Системные файлы Windows
 Thumbs.db
 desktop.ini
+.idea/
