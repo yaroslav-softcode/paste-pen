@@ -7,7 +7,8 @@ import time
 import tempfile
 from ctypes import wintypes
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolBar, QAction, QLabel,
-                             QFileDialog, QColorDialog, QMainWindow, QToolButton, QMenu, QLineEdit, QFrame, QVBoxLayout, QHBoxLayout, QSizePolicy, QMessageBox) # <--- Добавлено QMessageBox
+                             QFileDialog, QColorDialog, QMainWindow, QToolButton, QMenu, QLineEdit, QFrame, QVBoxLayout,
+                             QHBoxLayout, QSizePolicy, QMessageBox)
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QCursor, QPolygonF, QFont, QFontMetrics, QIcon
 from PyQt5.QtCore import Qt, QPoint, QRect, QRectF, QSize, QPointF, QPropertyAnimation, QEasingCurve, QSettings
 
@@ -57,7 +58,11 @@ class OverlayWidget(QWidget):
         self.show()
 
         self.tool = "cursor"
-        self.pen_color = QColor(255, 0, 0)
+
+        self.left_color = QColor(255, 0, 0)
+        self.right_color = QColor(0, 120, 215)
+        self.current_color = self.left_color
+
         self.pen_width = 3
         self.eraser_width = 20
 
@@ -103,7 +108,8 @@ class OverlayWidget(QWidget):
                 'type': d['type'],
                 'pixmap': d['pixmap'],
                 'rect': QRect(d['rect']),
-                'selected': d['selected']
+                'selected': d['selected'],
+                'layer': d.get('layer', 'front')
             })
         self.undo_stack.append({'canvas': self.canvas.copy(), 'drawings': drawings_copy})
 
@@ -149,21 +155,35 @@ class OverlayWidget(QWidget):
 
     def update_eraser_cursor(self):
         size = self.eraser_width
+        # Защита от слишком маленького размера, чтобы пунктир нормально помещался
+        if size < 16: size = 16
+
         pixmap = QPixmap(size, size)
         pixmap.fill(Qt.transparent)
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        color = QColor(50, 50, 50, 150)
-        pen = QPen(color, 1.5)
-        pen.setStyle(Qt.CustomDashLine)
-        pen.setDashPattern([4, 6])
-        pen.setCapStyle(Qt.RoundCap)
+        center = QPointF(size / 2.0, size / 2.0)
+        radius = size / 2.0 - 1.5  # Чуть-чуть уменьшаем, чтобы линия не обрезалась краем pixmap
 
-        painter.setPen(pen)
+        # 1. Рисуем сплошную черную обводку (основу)
+        pen_black = QPen(Qt.black, 2.5)
+        pen_black.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen_black)
         painter.setBrush(Qt.NoBrush)
-        painter.drawEllipse(QRectF(0.5, 0.5, size - 1, size - 1))
+        painter.drawEllipse(center, radius, radius)
+
+        # 2. Поверх рисуем белый пунктир
+        pen_white = QPen(Qt.white, 1.5)
+        pen_white.setStyle(Qt.CustomDashLine)
+        pen_white.setDashPattern([4, 4])  # 4 пикселя штрих, 4 пикселя пустота
+        pen_white.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen_white)
+        painter.drawEllipse(center, radius, radius)
+
         painter.end()
+
+        # Центрируем курсор
         self.setCursor(QCursor(pixmap, int(size / 2), int(size / 2)))
 
     def deselect_all_images(self):
@@ -193,31 +213,39 @@ class OverlayWidget(QWidget):
             painter.fillRect(self.rect(), QColor(0, 0, 0, 1))
 
         if not self.is_hidden:
+            # 1. РИСУЕМ КАРТИНКИ НА ЗАДНЕМ ПЛАНЕ (под линиями)
+            for item in self.drawings:
+                if item['type'] == 'image' and item.get('layer', 'front') == 'back':
+                    painter.drawPixmap(item['rect'], item['pixmap'])
+
+            # 2. РИСУЕМ ХОЛСТ С ЛИНИЯМИ И ФИГУРАМИ
             painter.drawPixmap(0, 0, self.canvas)
 
+            # 3. РИСУЕМ КАРТИНКИ НА ПЕРЕДНЕМ ПЛАНЕ (поверх линий)
             for item in self.drawings:
-                if item['type'] == 'image':
+                if item['type'] == 'image' and item.get('layer', 'front') == 'front':
                     painter.drawPixmap(item['rect'], item['pixmap'])
-                    if item.get('selected', False):
-                        painter.setPen(QPen(QColor(0, 120, 215), 2, Qt.DashLine))
-                        painter.drawRect(item['rect'])
 
-                        # Отрисовка ползунков (углов)
-                        for corner in ['TL', 'TR', 'BL', 'BR']:
-                            handle = self.get_handle_rect(corner, item['rect'])
-                            if corner == 'TR':
-                                # Оранжевый квадрат для пропорционального изменения
-                                painter.setBrush(QColor(255, 165, 0))
-                                painter.setPen(QPen(Qt.white, 1))
-                                painter.drawRect(handle)
-                            else:
-                                # Синие квадраты для обычного изменения
-                                painter.setBrush(QColor(0, 120, 215))
-                                painter.setPen(Qt.NoPen)
-                                painter.drawRect(handle)
+            # 4. РИСУЕМ РАМКИ ВЫДЕЛЕНИЯ И ПОЛЗУНКИ ПОВЕРХ ВСЕГО
+            for item in self.drawings:
+                if item['type'] == 'image' and item.get('selected', False):
+                    painter.setPen(QPen(QColor(0, 120, 215), 2, Qt.DashLine))
+                    painter.drawRect(item['rect'])
 
+                    for corner in ['TL', 'TR', 'BL', 'BR']:
+                        handle = self.get_handle_rect(corner, item['rect'])
+                        if corner == 'TR':
+                            painter.setBrush(QColor(255, 165, 0))
+                            painter.setPen(QPen(Qt.white, 1))
+                            painter.drawRect(handle)
+                        else:
+                            painter.setBrush(QColor(0, 120, 215))
+                            painter.setPen(Qt.NoPen)
+                            painter.drawRect(handle)
+
+            # Предпросмотр фигур
             if self.tool == "shape" and self.shape_start_pos is not None:
-                pen = QPen(self.pen_color, self.pen_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                pen = QPen(self.current_color, self.pen_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
                 painter.setPen(pen)
                 painter.setBrush(Qt.NoBrush)
 
@@ -230,7 +258,6 @@ class OverlayWidget(QWidget):
                 elif self.shape_type == "arrow":
                     self.draw_arrow(painter, self.shape_start_pos, self.shape_end_pos)
 
-        # Отрисовка рамки скриншота
         if self.tool == "screenshot" and self.screenshot_start_pos is not None and not self.is_capturing:
             rect = QRect(self.screenshot_start_pos, self.screenshot_end_pos).normalized()
             mask_color = QColor(0, 0, 0, 150)
@@ -255,7 +282,7 @@ class OverlayWidget(QWidget):
                      end.y() - arrow_size * math.sin(angle + math.pi / 6))
 
         arrow_head = QPolygonF([QPointF(end), p1, p2])
-        painter.setBrush(self.pen_color)
+        painter.setBrush(self.current_color)
         painter.drawPolygon(arrow_head)
 
     def mousePressEvent(self, event):
@@ -271,6 +298,11 @@ class OverlayWidget(QWidget):
             self.resizing_image = None
             self.screenshot_start_pos = None
             return
+
+        if event.button() == Qt.LeftButton:
+            self.current_color = self.left_color
+        elif event.button() == Qt.RightButton:
+            self.current_color = self.right_color
 
         if self.is_hidden and self.tool != "screenshot":
             return
@@ -303,7 +335,7 @@ class OverlayWidget(QWidget):
                     QLineEdit {{
                         background: rgba(255, 255, 255, 180);
                         border: 1px dashed gray;
-                        color: {self.pen_color.name()};
+                        color: {self.current_color.name()};
                         font-size: {self.text_font_size}px;
                         font-family: Arial;
                         padding: 2px;
@@ -315,7 +347,6 @@ class OverlayWidget(QWidget):
                 self.text_input.editingFinished.connect(self.commit_text)
 
         elif self.tool == "select":
-            # 1. Проверка изменения размера (только левая кнопка)
             if event.button() == Qt.LeftButton:
                 for item in reversed(self.drawings):
                     if item['type'] == 'image' and item.get('selected', False):
@@ -328,7 +359,6 @@ class OverlayWidget(QWidget):
                                 self.resize_start_rect = QRect(item['rect'])
                                 return
 
-            # 2. Проверка клика по картинке (Левая - перемещение, Правая - меню)
             for item in reversed(self.drawings):
                 if item['type'] == 'image' and item['rect'].contains(event.pos()):
                     if event.button() == Qt.LeftButton:
@@ -344,7 +374,6 @@ class OverlayWidget(QWidget):
                         item['selected'] = True
                         self.update()
 
-                        # Показываем контекстное меню
                         menu = QMenu(self)
                         menu.setStyleSheet("""
                             QMenu {
@@ -352,13 +381,28 @@ class OverlayWidget(QWidget):
                             }
                             QMenu::item { background: transparent; padding: 10px 30px; border-radius: 4px; }
                             QMenu::item:selected { background: #333333; }
+                            QMenu::separator { height: 1px; background: #333333; margin: 5px 10px; }
                         """)
-                        tr_delete = self.main_window.translations[self.main_window.lang]["delete"]
-                        delete_action = menu.addAction(tr_delete)
+                        tr = self.main_window.translations[self.main_window.lang]
+
+                        delete_action = menu.addAction(tr["delete"])
+                        menu.addSeparator()
+                        front_action = menu.addAction(tr["front"])
+                        back_action = menu.addAction(tr["back"])
+
                         action = menu.exec_(self.mapToGlobal(event.pos()))
+
                         if action == delete_action:
                             self.save_state()
                             self.drawings.remove(item)
+                            self.update()
+                        elif action == front_action:
+                            self.save_state()
+                            item['layer'] = 'front'
+                            self.update()
+                        elif action == back_action:
+                            self.save_state()
+                            item['layer'] = 'back'
                             self.update()
                         return
 
@@ -381,7 +425,7 @@ class OverlayWidget(QWidget):
 
             font = QFont("Arial", self.text_font_size, QFont.Bold)
             painter.setFont(font)
-            painter.setPen(self.pen_color)
+            painter.setPen(self.current_color)
 
             pos = self.text_input.pos()
             fm = QFontMetrics(font)
@@ -438,7 +482,6 @@ class OverlayWidget(QWidget):
             elif self.resizing_handle == 'BL':
                 new_rect.setBottomLeft(self.resize_start_rect.bottomLeft() + delta)
             elif self.resizing_handle == 'TR':
-                # ПРОПОРЦИОНАЛЬНОЕ ИЗМЕНЕНИЕ (якорь - нижний левый угол)
                 start_rect = self.resize_start_rect.normalized()
                 start_w = start_rect.width()
                 start_h = start_rect.height()
@@ -449,7 +492,6 @@ class OverlayWidget(QWidget):
                     new_h = int(new_w * aspect)
                     if new_h < 20: new_h = 20
                     bl = start_rect.bottomLeft()
-                    # QRect(x, y, w, h)
                     new_rect = QRect(bl.x(), bl.y() - new_h + 1, new_w, new_h).normalized()
                 else:
                     new_rect.setTopRight(self.resize_start_rect.topRight() + delta)
@@ -498,11 +540,15 @@ class OverlayWidget(QWidget):
                     screenshot_pixmap = desktop_pixmap.copy(pixmap_rect)
 
                     if not screenshot_pixmap.isNull():
-                        temp_dir = tempfile.gettempdir()
-                        filename = f"paste_pen_{int(time.time())}.png"
-                        file_path = os.path.join(temp_dir, filename)
-                        screenshot_pixmap.save(file_path, "PNG")
-                        os.startfile(file_path)
+                        QApplication.clipboard().setPixmap(screenshot_pixmap)
+                        try:
+                            temp_dir = tempfile.gettempdir()
+                            filename = f"paste_pen_{int(time.time())}.png"
+                            file_path = os.path.join(temp_dir, filename)
+                            screenshot_pixmap.save(file_path, "PNG")
+                            os.startfile(file_path)
+                        except Exception:
+                            pass
 
             self.is_capturing = False
             self.set_tool("cursor")
@@ -512,7 +558,7 @@ class OverlayWidget(QWidget):
         if self.tool == "shape" and self.shape_start_pos is not None:
             painter = QPainter(self.canvas)
             painter.setRenderHint(QPainter.Antialiasing)
-            pen = QPen(self.pen_color, self.pen_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            pen = QPen(self.current_color, self.pen_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
 
@@ -545,7 +591,7 @@ class OverlayWidget(QWidget):
             pen.setWidth(self.eraser_width)
         else:
             painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            pen.setColor(self.pen_color)
+            pen.setColor(self.current_color)
             pen.setWidth(self.pen_width)
 
         pen.setCapStyle(Qt.RoundCap)
@@ -570,7 +616,7 @@ class OverlayWidget(QWidget):
 
         self.save_state()
         self.deselect_all_images()
-        self.drawings.append({'type': 'image', 'pixmap': pixmap, 'rect': rect, 'selected': True})
+        self.drawings.append({'type': 'image', 'pixmap': pixmap, 'rect': rect, 'selected': True, 'layer': 'front'})
         self.set_tool("select")
         self.update()
 
@@ -601,30 +647,32 @@ class MainWindow(QMainWindow):
         self.anim = None
         self.fixed_width = 150
 
-        # Инициализация сохранения настроек
         self.settings = QSettings("PastePenApp", "PastePen")
-        # Загружаем язык (по умолчанию RU)
         self.lang = self.settings.value("language", "RU", type=str)
         self.translations = {
             "RU": {
                 "cursor": "Курсор", "pen": "Ручка", "shape": "Фигуры", "text": "Текст",
                 "eraser": "Ластик", "color": "Цвет", "image": "Картинка", "select": "Выбор",
                 "screenshot": "Скриншот", "delete": "Удалить",
+                "front": "На передний план", "back": "На задний план",
                 "undo": "Назад", "hide": "Скрыть", "show": "Показать", "clear": "Очистить",
                 "exit": "Выход",
                 "width": "Толщина: {}px", "size": "Размер: {}px",
                 "line": "Линия", "rect": "Прямоугольник", "ellipse": "Эллипс", "arrow": "Стрелка",
-                "next_lang": "EN", "donate_tip": "Поддержать на Boosty", "cursor_tip": "Прав. + лев. клик мыши"
+                "next_lang": "EN", "donate_tip": "Поддержать на Boosty", "cursor_tip": "Прав. + лев. клик мыши",
+                "color_tip": "ЛКМ: цвет левой кнопки\nПКМ: цвет правой кнопки"
             },
             "EN": {
                 "cursor": "Cursor", "pen": "Pen", "shape": "Shapes", "text": "Text",
                 "eraser": "Eraser", "color": "Color", "image": "Image", "select": "Select",
                 "screenshot": "Screenshot", "delete": "Delete",
+                "front": "Bring to Front", "back": "Send to Back",
                 "undo": "Undo", "hide": "Hide", "show": "Show", "clear": "Clear",
                 "exit": "Exit",
                 "width": "Width: {}px", "size": "Size: {}px",
                 "line": "Line", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Arrow",
-                "next_lang": "RU", "donate_tip": "Support on DonationAlerts", "cursor_tip": "Right + Left mouse click"
+                "next_lang": "RU", "donate_tip": "Support on DonationAlerts", "cursor_tip": "Right + Left mouse click",
+                "color_tip": "LMB: left button color\nRMB: right button color"
             }
         }
         tr = self.translations[self.lang]
@@ -671,7 +719,7 @@ class MainWindow(QMainWindow):
                 border-radius: 8px;
                 color: #e0e0e0;
                 padding: 8px;
-                font-size: 14pt; 
+                font-size: 18px; 
             }
             QMenu::item {
                 background: transparent;
@@ -689,7 +737,6 @@ class MainWindow(QMainWindow):
         top_v_layout.setContentsMargins(0, 0, 0, 4)
         top_v_layout.setSpacing(2)
 
-        # Ряд 1: Свернуть и Название приложения
         row1_layout = QHBoxLayout()
         row1_layout.setContentsMargins(0, 0, 0, 0)
         row1_layout.setSpacing(4)
@@ -719,10 +766,9 @@ class MainWindow(QMainWindow):
 
         top_v_layout.addLayout(row1_layout)
 
-        # Ряд 2: Текст, Рубль/Доллар, Язык
         row2_layout = QHBoxLayout()
         row2_layout.setContentsMargins(0, 0, 0, 0)
-        row2_layout.setSpacing(0)
+        row2_layout.setSpacing(4)
         row2_layout.setAlignment(Qt.AlignLeft)
 
         self.btn_toggle_text = QToolButton(self.toolbar_widget)
@@ -751,9 +797,8 @@ class MainWindow(QMainWindow):
         top_v_layout.addLayout(row2_layout)
         layout.addLayout(top_v_layout)
 
-        # --- ОСНОВНЫЕ КНОПКИ ---
         self.btn_cursor = self.create_tool_button(tr["cursor"], ICON_CURSOR, lambda: self.overlay.set_tool("cursor"))
-        self.btn_cursor.setToolTip(tr["cursor_tip"])  # ДОБАВЛЕНА ПОДСКАЗКА
+        self.btn_cursor.setToolTip(tr["cursor_tip"])
         layout.addWidget(self.btn_cursor)
 
         self.btn_pen = self.create_tool_button(tr["pen"], ICON_PEN, lambda: self.overlay.set_tool("pen"))
@@ -773,7 +818,10 @@ class MainWindow(QMainWindow):
         self.setup_menu(self.btn_eraser, [10, 20, 40, 60], self.set_eraser_width, tr["width"])
         layout.addWidget(self.btn_eraser)
 
-        self.btn_color = self.create_tool_button(tr["color"], ICON_COLOR, self.choose_color)
+        self.btn_color = self.create_tool_button(tr["color"], ICON_COLOR, self.choose_left_color)
+        self.btn_color.setToolTip(tr["color_tip"])
+        self.btn_color.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.btn_color.customContextMenuRequested.connect(self.choose_right_color)
         layout.addWidget(self.btn_color)
 
         self.btn_image = self.create_tool_button(tr["image"], ICON_IMAGE, self.load_image)
@@ -850,19 +898,19 @@ class MainWindow(QMainWindow):
 
     def toggle_language(self):
         self.lang = "EN" if self.lang == "RU" else "RU"
-        # Сохраняем выбранный язык в реестр Windows
         self.settings.setValue("language", self.lang)
         self.update_language()
 
     def update_language(self):
         tr = self.translations[self.lang]
-        self.btn_cursor.setText("  " + tr["cursor"])  # Добавлены пробелы
+        self.btn_cursor.setText("  " + tr["cursor"])
         self.btn_cursor.setToolTip(tr["cursor_tip"])
         self.btn_pen.setText("  " + tr["pen"])
         self.btn_shape.setText("  " + tr["shape"])
         self.btn_text.setText("  " + tr["text"])
         self.btn_eraser.setText("  " + tr["eraser"])
         self.btn_color.setText("  " + tr["color"])
+        self.btn_color.setToolTip(tr["color_tip"])
         self.btn_image.setText("  " + tr["image"])
         self.btn_select.setText("  " + tr["select"])
         self.btn_screenshot.setText("  " + tr["screenshot"])
@@ -876,7 +924,6 @@ class MainWindow(QMainWindow):
             self.btn_hide.setIcon(get_svg_icon(ICON_HIDE))
 
         self.btn_donate.setToolTip(tr["donate_tip"])
-        # Кнопка Язык остается без пробела, так как у нее нет иконки
         self.btn_lang.setText(tr["next_lang"])
         self.btn_clear.setText("  " + tr["clear"])
         self.btn_exit.setText("  " + tr["exit"])
@@ -933,10 +980,10 @@ class MainWindow(QMainWindow):
         self.overlay.toggle_hide()
         tr = self.translations[self.lang]
         if self.overlay.is_hidden:
-            self.btn_hide.setText("  " + tr["show"])  # Добавлены пробелы
+            self.btn_hide.setText("  " + tr["show"])
             self.btn_hide.setIcon(get_svg_icon(ICON_SHOW))
         else:
-            self.btn_hide.setText("  " + tr["hide"])  # Добавлены пробелы
+            self.btn_hide.setText("  " + tr["hide"])
             self.btn_hide.setIcon(get_svg_icon(ICON_HIDE))
 
         if self.icons_only:
@@ -1026,10 +1073,18 @@ class MainWindow(QMainWindow):
     def mouseReleaseEvent(self, event):
         self.drag_pos = None
 
-    def choose_color(self):
-        color = QColorDialog.getColor(self.overlay.pen_color, self, "Выбор цвета")
+    def choose_left_color(self):
+        color = QColorDialog.getColor(self.overlay.left_color, self, "Цвет левой кнопки мыши")
         if color.isValid():
-            self.overlay.pen_color = color
+            self.overlay.left_color = color
+            self.overlay.set_tool("pen")
+            self.raise_()
+            self.activateWindow()
+
+    def choose_right_color(self, pos):
+        color = QColorDialog.getColor(self.overlay.right_color, self, "Цвет правой кнопки мыши")
+        if color.isValid():
+            self.overlay.right_color = color
             self.overlay.set_tool("pen")
             self.raise_()
             self.activateWindow()
@@ -1055,17 +1110,14 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
-    # 1. Проверяем, запущена ли уже программа (через Windows Mutex)
     mutex_name = "Paste_Pen_App_Single_Instance_Mutex"
     mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
 
-    # Если GetLastError() вернет 183, значит мьютекс уже существует (программа запущена)
     if ctypes.windll.kernel32.GetLastError() == 183:
         app = QApplication(sys.argv)
         QMessageBox.information(None, "Paste Pen", "Программа уже запущена.")
         sys.exit(0)
 
-    # 2. Если это первый запуск, запускаем программу нормально
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     window = MainWindow()
