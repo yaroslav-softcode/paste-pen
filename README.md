@@ -59,7 +59,7 @@ To bring an inserted image to the front or send it to the back, right-click it i
 To delete an inserted image, right-click it in the "Select" mode.  
 
 💻 Download
-Download the ready-to-use .exe file from the Releases page.  
+Download the ready-to-use paste_pen.exe file from the Releases page.  
 
 📜 License
 This project is licensed under the MIT License.
