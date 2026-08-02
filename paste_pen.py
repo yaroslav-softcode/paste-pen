@@ -25,6 +25,10 @@ def get_svg_icon(svg_path):
 ICON_CURSOR = '<svg viewBox="0 0 24 24" fill="white"><path d="M5.5 3.5L19 12L13 13.5L11 19.5L5.5 3.5Z"/></svg>'
 ICON_PEN = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L8 16M8 16L16 8L20 12L12 20L4 20Z M14 6L16 4L20 8L18 10"/></svg>'
 ICON_SHAPES = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><circle cx="17.5" cy="6.5" r="3.5"/><path d="M7 15L11 21H3L7 15Z"/><path d="M14 21L21 14"/></svg>'
+ICON_SHAPE_LINE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/></svg>'
+ICON_SHAPE_RECT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="1"/></svg>'
+ICON_SHAPE_ELLIPSE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg>'
+ICON_SHAPE_ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="11,5 19,5 19,13"/></svg>'
 ICON_TEXT = '<svg viewBox="0 0 24 24" fill="white"><path d="M5 4H19V8H17V6H14V18H16V20H8V18H10V6H7V8H5V4Z"/></svg>'
 ICON_ERASER = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H8.5a2.5 2.5 0 0 1-1.77-.73l-4.5-4.5a2.5 2.5 0 0 1 0-3.54l9.5-9.5a2.5 2.5 0 0 1 3.54 0l5.5 5.5a2.5 2.5 0 0 1 0 3.54L11.5 20"/><path d="M9 11l4 4"/></svg>'
 ICON_COLOR = '<svg viewBox="0 0 24 24" fill="white"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1 0 2-.8 2-2 0-.5-.2-1-.6-1.4-.3-.4-.4-.8-.4-1.1 0-1 .8-1.5 1.5-1.5H17c2.8 0 5-2.2 5-5 0-4.4-4.5-8-10-8zm-5 9c-.8 0-1.5-.7-1.5-1.5S6.2 8 7 8s1.5.7 1.5 1.5S7.8 11 7 11zm3-4c-.8 0-1.5-.7-1.5-1.5S9.2 4 10 4s1.5.7 1.5 1.5S10.8 7 10 7zm4 0c-.8 0-1.5-.7-1.5-1.5S13.2 4 14 4s1.5.7 1.5 1.5S14.8 7 14 7zm3 4c-.8 0-1.5-.7-1.5-1.5S16.2 8 17 8s1.5.7 1.5 1.5S17.8 11 17 11z"/></svg>'
@@ -32,8 +36,8 @@ ICON_IMAGE = '<svg viewBox="0 0 24 24" fill="white"><path d="M21 19V5c0-1.1-.9-2
 ICON_SELECT = '<svg viewBox="0 0 24 24" fill="white"><path d="M12 2L8 6h3v3h2V6h3l-4-4zm0 20l4-4h-3v-3h-2v3H8l4 4zM2 12l4 4v-3h3v-2H6V8l-4 4zm20 0l-4-4v3h-3v2h3v3l4-4z"/></svg>'
 ICON_SCREENSHOT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
 ICON_UNDO = '<svg viewBox="0 0 24 24" fill="white"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>'
-ICON_HIDE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
-ICON_SHOW = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+ICON_SHOW = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+ICON_HIDE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
 ICON_CLEAR = '<svg viewBox="0 0 24 24" fill="white"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>'
 ICON_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>'
 
@@ -89,6 +93,7 @@ class OverlayWidget(QWidget):
         self.screenshot_end_pos = None
         self.is_capturing = False
         self.text_input = None
+        self.text_color = None
 
         self.undo_stack = []
         self.unsetCursor()
@@ -325,17 +330,20 @@ class OverlayWidget(QWidget):
             self.update()
 
         elif self.tool == "text":
-            if event.button() == Qt.LeftButton:
+            if event.button() in (Qt.LeftButton, Qt.RightButton):
                 self.commit_text()
                 self.save_state()
                 self.deselect_all_images()
+
+                # ЗАПОМИНАЕМ ЦВЕТ В МОМЕНТ КЛИКА
+                self.text_color = self.current_color
 
                 self.text_input = QLineEdit(self)
                 self.text_input.setStyleSheet(f"""
                     QLineEdit {{
                         background: rgba(255, 255, 255, 180);
                         border: 1px dashed gray;
-                        color: {self.current_color.name()};
+                        color: {self.text_color.name()};
                         font-size: {self.text_font_size}px;
                         font-family: Arial;
                         padding: 2px;
@@ -423,9 +431,15 @@ class OverlayWidget(QWidget):
             painter = QPainter(self.canvas)
             painter.setRenderHint(QPainter.Antialiasing)
 
-            font = QFont("Arial", self.text_font_size, QFont.Bold)
+            # ЯВНО УКАЗЫВАЕМ РАЗМЕР В ПИКСЕЛЯХ, КАК В CSS
+            font = QFont("Arial")
+            font.setPixelSize(self.text_font_size)
+            font.setBold(True)
             painter.setFont(font)
-            painter.setPen(self.current_color)
+
+            # ИСПОЛЬЗУЕМ ЗАПОМНЕННЫЙ ЦВЕТ, А НЕ ТЕКУЩИЙ
+            color_to_use = self.text_color if self.text_color else self.current_color
+            painter.setPen(color_to_use)
 
             pos = self.text_input.pos()
             fm = QFontMetrics(font)
@@ -435,6 +449,7 @@ class OverlayWidget(QWidget):
 
         self.text_input.deleteLater()
         self.text_input = None
+        self.text_color = None  # Сбрасываем запомненный цвет
 
     def mouseMoveEvent(self, event):
         if (event.buttons() & Qt.LeftButton) and (event.buttons() & Qt.RightButton):
@@ -603,8 +618,7 @@ class OverlayWidget(QWidget):
         rect = QRect(self.last_pos, pos).normalized().united(QRect(pos, pos).normalized())
         self.update(rect.adjusted(-20, -20, 20, 20))
 
-    def insert_image(self, file_path):
-        pixmap = QPixmap(file_path)
+    def insert_pixmap(self, pixmap):
         if pixmap.isNull(): return
 
         if pixmap.width() > 2000 or pixmap.height() > 2000:
@@ -657,10 +671,12 @@ class MainWindow(QMainWindow):
                 "front": "На передний план", "back": "На задний план",
                 "undo": "Назад", "hide": "Скрыть", "show": "Показать", "clear": "Очистить",
                 "exit": "Выход",
-                "width": "Толщина: {}px", "size": "Размер: {}px",
+                "width": "Толщина: {}", "size": "Размер: {}",
                 "line": "Линия", "rect": "Прямоугольник", "ellipse": "Эллипс", "arrow": "Стрелка",
                 "next_lang": "EN", "donate_tip": "Поддержать на Boosty", "cursor_tip": "Прав. + лев. клик мыши",
-                "color_tip": "ЛКМ: цвет левой кнопки\nПКМ: цвет правой кнопки"
+                "color_tip": "ЛКМ: цвет левой кнопки\nПКМ: цвет правой кнопки",
+                "paste_img": "Вставить из буфера",  # <--- НОВАЯ СТРОКА
+                "no_img_clip": "В буфере обмена нет изображения."  # <--- НОВАЯ СТРОКА
             },
             "EN": {
                 "cursor": "Cursor", "pen": "Pen", "shape": "Shapes", "text": "Text",
@@ -669,10 +685,12 @@ class MainWindow(QMainWindow):
                 "front": "Bring to Front", "back": "Send to Back",
                 "undo": "Undo", "hide": "Hide", "show": "Show", "clear": "Clear",
                 "exit": "Exit",
-                "width": "Width: {}px", "size": "Size: {}px",
+                "width": "Width: {}", "size": "Size: {}",
                 "line": "Line", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Arrow",
                 "next_lang": "RU", "donate_tip": "Support on DonationAlerts", "cursor_tip": "Right + Left mouse click",
-                "color_tip": "LMB: left button color\nRMB: right button color"
+                "color_tip": "LMB: left button color\nRMB: right button color",
+                "paste_img": "Paste from Clipboard",  # <--- НОВАЯ СТРОКА
+                "no_img_clip": "No image in clipboard."  # <--- НОВАЯ СТРОКА
             }
         }
         tr = self.translations[self.lang]
@@ -802,7 +820,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_cursor)
 
         self.btn_pen = self.create_tool_button(tr["pen"], ICON_PEN, lambda: self.overlay.set_tool("pen"))
-        self.setup_menu(self.btn_pen, [2, 5, 10, 20], self.set_pen_width, tr["width"])
+        self.setup_menu(self.btn_pen, [2, 5, 10, 20, 30, 50], self.set_pen_width, tr["width"])
         layout.addWidget(self.btn_pen)
 
         self.btn_shape = self.create_tool_button(tr["shape"], ICON_SHAPES, lambda: self.overlay.set_tool("shape"))
@@ -811,11 +829,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_shape)
 
         self.btn_text = self.create_tool_button(tr["text"], ICON_TEXT, lambda: self.overlay.set_tool("text"))
-        self.setup_menu(self.btn_text, [16, 24, 36, 48], self.set_text_font_size, tr["size"])
+        self.setup_menu(self.btn_text, [16, 24, 36, 48, 72, 100, 150, 200, 300], self.set_text_font_size, tr["size"])
         layout.addWidget(self.btn_text)
 
         self.btn_eraser = self.create_tool_button(tr["eraser"], ICON_ERASER, lambda: self.overlay.set_tool("eraser"))
-        self.setup_menu(self.btn_eraser, [10, 20, 40, 60], self.set_eraser_width, tr["width"])
+        self.setup_menu(self.btn_eraser, [10, 20, 40, 60, 100, 200 ], self.set_eraser_width, tr["width"])
         layout.addWidget(self.btn_eraser)
 
         self.btn_color = self.create_tool_button(tr["color"], ICON_COLOR, self.choose_left_color)
@@ -825,6 +843,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_color)
 
         self.btn_image = self.create_tool_button(tr["image"], ICON_IMAGE, self.load_image)
+        # ДОБАВЛЕНО: Контекстное меню для вставки из буфера
+        self.btn_image.setContextMenuPolicy(Qt.ActionsContextMenu)
+        self.act_paste_img = QAction(tr["paste_img"], self.btn_image)
+        self.act_paste_img.triggered.connect(self.paste_image_from_clipboard)
+        self.btn_image.addAction(self.act_paste_img)
         layout.addWidget(self.btn_image)
 
         self.btn_select = self.create_tool_button(tr["select"], ICON_SELECT, lambda: self.overlay.set_tool("select"))
@@ -911,6 +934,7 @@ class MainWindow(QMainWindow):
         self.btn_eraser.setText("  " + tr["eraser"])
         self.btn_color.setText("  " + tr["color"])
         self.btn_color.setToolTip(tr["color_tip"])
+        self.act_paste_img.setText(tr["paste_img"])
         self.btn_image.setText("  " + tr["image"])
         self.btn_select.setText("  " + tr["select"])
         self.btn_screenshot.setText("  " + tr["screenshot"])
@@ -937,11 +961,11 @@ class MainWindow(QMainWindow):
             for action in btn.actions():
                 btn.removeAction(action)
 
-        self.setup_menu(self.btn_pen, [2, 5, 10, 20], self.set_pen_width, tr["width"])
+        self.setup_menu(self.btn_pen, [2, 5, 10, 20, 30, 50], self.set_pen_width, tr["width"])
         self.setup_menu(self.btn_shape, [(tr["line"], "line"), (tr["rect"], "rect"), (tr["ellipse"], "ellipse"),
                                          (tr["arrow"], "arrow")], self.set_shape_type)
-        self.setup_menu(self.btn_text, [16, 24, 36, 48], self.set_text_font_size, tr["size"])
-        self.setup_menu(self.btn_eraser, [10, 20, 40, 60], self.set_eraser_width, tr["width"])
+        self.setup_menu(self.btn_text, [16, 24, 36, 48, 72, 100, 150, 200, 300], self.set_text_font_size, tr["size"])
+        self.setup_menu(self.btn_eraser, [10, 20, 40, 60, 100, 200], self.set_eraser_width, tr["width"])
 
         self.calculate_fixed_width()
         if not self.is_collapsed:
@@ -1054,6 +1078,16 @@ class MainWindow(QMainWindow):
         self.overlay.shape_type = shape_id
         self.overlay.set_tool("shape")
 
+        # Меняем иконку кнопки в зависимости от выбранной фигуры
+        if shape_id == "line":
+            self.btn_shape.setIcon(get_svg_icon(ICON_SHAPE_LINE))
+        elif shape_id == "rect":
+            self.btn_shape.setIcon(get_svg_icon(ICON_SHAPE_RECT))
+        elif shape_id == "ellipse":
+            self.btn_shape.setIcon(get_svg_icon(ICON_SHAPE_ELLIPSE))
+        elif shape_id == "arrow":
+            self.btn_shape.setIcon(get_svg_icon(ICON_SHAPE_ARROW))
+
     def set_text_font_size(self, size):
         self.overlay.text_font_size = size
         self.overlay.set_tool("text")
@@ -1092,9 +1126,21 @@ class MainWindow(QMainWindow):
     def load_image(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Открыть изображение", "", "PNG Images (*.png)")
         if file_path:
-            self.overlay.insert_image(file_path)
+            pixmap = QPixmap(file_path)
+            self.overlay.insert_pixmap(pixmap)
             self.raise_()
             self.activateWindow()
+
+    def paste_image_from_clipboard(self):
+        clipboard = QApplication.clipboard()
+        image = clipboard.image()
+        if not image.isNull():
+            pixmap = QPixmap.fromImage(image)
+            self.overlay.insert_pixmap(pixmap)
+            self.raise_()
+            self.activateWindow()
+        else:
+            QMessageBox.information(self, "Paste Pen", self.translations[self.lang]["no_img_clip"])
 
     def close_app(self):
         self.is_closing = True
