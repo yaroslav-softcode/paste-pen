@@ -857,11 +857,11 @@ class MainWindow(QMainWindow):
                                                       lambda: self.overlay.set_tool("screenshot"))
         layout.addWidget(self.btn_screenshot)
 
-        self.btn_undo = self.create_tool_button(tr["undo"], ICON_UNDO, self.overlay.undo)
-        layout.addWidget(self.btn_undo)
-
         self.btn_hide = self.create_tool_button(tr["hide"], ICON_HIDE, self.toggle_hide_mode)
         layout.addWidget(self.btn_hide)
+
+        self.btn_undo = self.create_tool_button(tr["undo"], ICON_UNDO, self.overlay.undo)
+        layout.addWidget(self.btn_undo)
 
         self.btn_clear = self.create_tool_button(tr["clear"], ICON_CLEAR, self.overlay.clear_all)
         layout.addWidget(self.btn_clear)
