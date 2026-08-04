@@ -33,13 +33,14 @@ Paste Pen — это не требующая установки, удобная 
 Чтобы выбрать цвет на правой или левой кнопке мыши, нажмите соответствующей кнопкой на кнопку Цвет.  
 Для выбора размера пера, линий, текста и ластика нажмите правой кнопкой на соответствующие кнопки.  
 Для переноса вставленной картинки на передний/задний план или её удаления нажмите на неё правой кнопкой мыши в режиме Выбор.  
+Левый клик по кнопке "Скриншот" копирует выбранное изображение в буфер и открывает просмотр. Правый клик-клик, только копирует изображение в буфер.  
 Правый клик по кнопке "Картинка" для вставки картинок из буфера обмена, либо для вставки без фона, либо вставка из папки с возможностью скролла средней кнопкой мыши.
 Правый клик по кнопке "Курсор": включение лазерной указки.  
 Правый клик по кнопке "Скрыть/Показать текст": переключение между светлой и темной темой.  
 Правый клик по кнопке выбора языка: выбор нужного языка из меню.  
 
 💻💾 Скачать:
-Portable (PastePen.exe) — Не требует установки. Просто запустите и пользуйтесь.
+PastePen.exe — Не требует установки. Просто запустите и пользуйтесь.
 
 ⚠️ Внимание: Поскольку программа не имеет официальной цифровой подписи, Windows 11 может блокировать запуск, выдав предупреждение "Система Windows защитила ваш компьютер".  
 Программа абсолютно безопасна и имеет открытый исходный код.  
@@ -82,16 +83,16 @@ To select a color for the right or left mouse button, click the "Color" button w
 To paste an image from the clipboard, right-click the "Image" button.  
 To choose the size of the pen, lines, text, or eraser, right-click the corresponding tool buttons.  
 To bring an inserted image to the front/back or delete it, right-click it in "Select" mode.  
+Left-click on the "Screenshot" button copies the selected image to the clipboard and opens the viewer. Right-click only copies the image to the clipboard.
 Right-click the "Image" button to paste images from the clipboard, insert them without a background, or insert a folder and scroll through the files using the mouse wheel.  
 Right-click the "Cursor" button: enable/disable the laser pointer.  
 Right-click the "Hide/Show text" button: switch between light and dark themes.  
 Right-click the language selection button: choose the desired language from the menu.  
 
 💻 Download  
-Download the ready-to-use paste_pen.exe file from the Releases page.  
+Download the ready-to-use PastePen.exe file from the Releases page. Portable.  
 
 ⚠️ Attention: Since the program does not have an official digital signature, Windows (SmartScreen or Windows Defender) may block the launch of the .exe file, displaying the warning "Windows protected your PC".
-To run the program, unblock the file via File Properties -> Unblock.  
 The program is completely safe and open-source.  
 
 📜 License  
