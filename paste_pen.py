@@ -5,13 +5,14 @@ import webbrowser
 import os
 import time
 import tempfile
+import numpy as np
 from ctypes import wintypes
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolBar, QAction, QLabel,
                              QFileDialog, QColorDialog, QMainWindow, QToolButton, QMenu, QLineEdit, QFrame, QVBoxLayout,
                              QHBoxLayout, QSizePolicy, QMessageBox, QSystemTrayIcon)
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QCursor, QPolygonF, QFont, QFontMetrics, QIcon, QTransform, \
-    QPainterPath, QPainterPathStroker
-from PyQt5.QtCore import Qt, QPoint, QRect, QRectF, QSize, QPointF, QPropertyAnimation, QEasingCurve, QSettings
+    QPainterPath, QPainterPathStroker, QImage, QDesktopServices
+from PyQt5.QtCore import Qt, QPoint, QRect, QRectF, QSize, QPointF, QPropertyAnimation, QEasingCurve, QSettings, QUrl
 
 
 # --- Функция для создания векторных иконок (с возможностью перекраски) ---
@@ -40,8 +41,8 @@ ICON_IMAGE = '<svg viewBox="0 0 24 24" fill="white"><path d="M21 19V5c0-1.1-.9-2
 ICON_SELECT = '<svg viewBox="0 0 24 24" fill="white"><path d="M12 2L8 6h3v3h2V6h3l-4-4zm0 20l4-4h-3v-3h-2v3H8l4 4zM2 12l4 4v-3h3v-2H6V8l-4 4zm20 0l-4-4v3h-3v2h3v3l4-4z"/></svg>'
 ICON_SCREENSHOT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
 ICON_UNDO = '<svg viewBox="0 0 24 24" fill="white"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>'
-ICON_SHOW = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
 ICON_HIDE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+ICON_SHOW = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
 ICON_CLEAR = '<svg viewBox="0 0 24 24" fill="white"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>'
 ICON_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>'
 ICON_TOGGLE_TEXT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>'
@@ -84,6 +85,12 @@ class OverlayWidget(QWidget):
         self.current_item = None
         self.is_hidden = False
 
+        # Переменные для режима папки
+        self.active_folder_item = None
+        self.folder_files = []
+        self.folder_index = -1
+        self.folder_remove_bg = False
+
         self.moving_image = None
         self.resizing_image = None
         self.resizing_handle = None
@@ -99,6 +106,7 @@ class OverlayWidget(QWidget):
         self.is_capturing = False
         self.text_input = None
         self.text_color = None
+        self.screenshot_open_file = True
 
         self.undo_stack = []
         self.update_cursor()
@@ -128,6 +136,7 @@ class OverlayWidget(QWidget):
             self.canvas = state['canvas']
             self.drawings = state['drawings']
             self.deselect_all_images()
+            self.active_folder_item = None  # Сбрасываем режим папки при отмене
             self.update()
 
     def nativeEvent(self, eventType, message):
@@ -137,7 +146,6 @@ class OverlayWidget(QWidget):
                 pt = QPoint(msg.pt.x, msg.pt.y)
                 if self.main_window.geometry().contains(pt):
                     return True, -1
-                # Курсор пропускает клики, только если это обычный курсор и выключен лазер
                 if self.tool == "cursor" and not self.laser_mode:
                     return True, -1
                 return True, 1
@@ -151,12 +159,17 @@ class OverlayWidget(QWidget):
             self.is_hidden = False
             self.main_window.update_hide_button_state()
 
+        # Отключаем режим папки, если выбран инструмент, отличный от Выбора и Курсора
+        if self.active_folder_item and tool not in ("select", "cursor"):
+            self.active_folder_item = None
+            self.folder_files = []
+            self.folder_index = -1
+
         self.tool = tool
         self.update_cursor()
         self.update()
 
     def update_cursor(self):
-        # Исключение для ластика: всегда показываем контур ластика, даже если включен лазер
         if self.tool == "eraser":
             self.update_eraser_cursor()
         elif self.laser_mode:
@@ -176,16 +189,13 @@ class OverlayWidget(QWidget):
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
         center = QPointF(size / 2.0, size / 2.0)
-
         for i in range(4, 0, -1):
             painter.setBrush(QColor(255, 0, 0, 15))
             painter.setPen(Qt.NoPen)
             painter.drawEllipse(center, i * 4, i * 4)
-
         painter.setBrush(QColor(255, 30, 30))
         painter.setPen(QPen(QColor(120, 0, 0), 1))
         painter.drawEllipse(center, 5, 5)
-
         painter.end()
         self.setCursor(QCursor(pixmap, int(size / 2), int(size / 2)))
 
@@ -198,24 +208,20 @@ class OverlayWidget(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         center = QPointF(size / 2.0, size / 2.0)
         radius = size / 2.0 - 1.5
-
         pen_black = QPen(Qt.black, 2.5)
         pen_black.setCapStyle(Qt.RoundCap)
         painter.setPen(pen_black)
         painter.setBrush(Qt.NoBrush)
         painter.drawEllipse(center, radius, radius)
-
         pen_white = QPen(Qt.white, 1.5)
         pen_white.setStyle(Qt.CustomDashLine)
         pen_white.setDashPattern([4, 4])
         pen_white.setCapStyle(Qt.RoundCap)
         painter.setPen(pen_white)
         painter.drawEllipse(center, radius, radius)
-
         painter.setPen(QPen(Qt.black, 1))
         painter.setBrush(Qt.white)
         painter.drawEllipse(center, 2, 2)
-
         painter.end()
         self.setCursor(QCursor(pixmap, int(size / 2), int(size / 2)))
 
@@ -338,7 +344,6 @@ class OverlayWidget(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
-        # Лазерная указка тоже требует невидимого фона для перехвата мыши
         if (self.tool != "cursor" or self.laser_mode) and not self.is_capturing:
             painter.fillRect(self.rect(), QColor(0, 0, 0, 1))
 
@@ -389,7 +394,7 @@ class OverlayWidget(QWidget):
         if event.button() not in (Qt.LeftButton, Qt.RightButton): return
         if (event.buttons() & Qt.LeftButton) and (event.buttons() & Qt.RightButton):
             self.commit_text()
-            self.main_window.set_normal_cursor()  # Сбрасываем и инструмент, и лазер
+            self.main_window.set_normal_cursor()
             self.last_pos = None
             self.current_item = None
             self.moving_image = None
@@ -419,13 +424,9 @@ class OverlayWidget(QWidget):
             self.deselect_all_images()
             path = QPainterPath()
             path.moveTo(event.pos())
-
             item_type = self.tool
             width = self.eraser_width if self.tool == "eraser" else self.pen_width
-
-            self.current_item = {
-                'type': item_type, 'color': self.current_color, 'width': width, 'path': path
-            }
+            self.current_item = {'type': item_type, 'color': self.current_color, 'width': width, 'path': path}
             p = QPainter(self.canvas)
             p.setRenderHint(QPainter.Antialiasing)
             self.draw_item_on_painter(p, self.current_item)
@@ -438,10 +439,8 @@ class OverlayWidget(QWidget):
             self.shape_start_pos = event.pos()
             self.shape_end_pos = event.pos()
             path = self.get_shape_path(self.shape_type, self.shape_start_pos, self.shape_end_pos, self.pen_width)
-            self.current_item = {
-                'type': 'shape', 'shape_type': self.shape_type, 'color': self.current_color, 'width': self.pen_width,
-                'path': path
-            }
+            self.current_item = {'type': 'shape', 'shape_type': self.shape_type, 'color': self.current_color,
+                                 'width': self.pen_width, 'path': path}
             self.update()
 
         elif self.tool == "screenshot":
@@ -456,16 +455,8 @@ class OverlayWidget(QWidget):
                 self.deselect_all_images()
                 self.text_color = self.current_color
                 self.text_input = QLineEdit(self)
-                self.text_input.setStyleSheet(f"""
-                    QLineEdit {{
-                        background: rgba(255, 255, 255, 180);
-                        border: 1px dashed gray;
-                        color: {self.text_color.name()};
-                        font-size: {self.text_font_size}px;
-                        font-family: Arial;
-                        padding: 2px;
-                    }}
-                """)
+                self.text_input.setStyleSheet(
+                    f"QLineEdit {{ background: rgba(255, 255, 255, 180); border: 1px dashed gray; color: {self.text_color.name()}; font-size: {self.text_font_size}px; font-family: Arial; padding: 2px; }}")
                 self.text_input.move(event.pos())
                 self.text_input.show()
                 self.text_input.setFocus()
@@ -494,12 +485,21 @@ class OverlayWidget(QWidget):
                             self.deselect_all_images()
                             item['selected'] = True
                             self.moving_image = item
+                            # Если кликнули на другую картинку, выходим из режима папки
+                            if self.active_folder_item != item:
+                                self.active_folder_item = None
+                                self.folder_files = []
+                                self.folder_index = -1
                             self.move_offset = event.pos() - item['points'][0]
                             self.update()
                             return
                         elif event.button() == Qt.RightButton:
                             self.deselect_all_images()
                             item['selected'] = True
+                            if self.active_folder_item != item:
+                                self.active_folder_item = None
+                                self.folder_files = []
+                                self.folder_index = -1
                             self.update()
                             menu = QMenu(self)
                             menu.setStyleSheet(self.main_window.styleSheet())
@@ -508,6 +508,9 @@ class OverlayWidget(QWidget):
                             menu.addSeparator()
                             front_action = menu.addAction(tr["front"])
                             back_action = menu.addAction(tr["back"])
+                            menu.addSeparator()
+                            remove_bg_action = menu.addAction(tr["remove_bg"])
+                            save_as_action = menu.addAction(tr["save_as"])
                             action = menu.exec_(self.mapToGlobal(event.pos()))
                             if action == delete_action:
                                 self.save_state()
@@ -521,8 +524,22 @@ class OverlayWidget(QWidget):
                                 self.save_state()
                                 item['layer'] = 'back'
                                 self.update()
+                            elif action == remove_bg_action:
+                                self.save_state()
+                                processed_pixmap = self.main_window.remove_chart_background(item['pixmap'],
+                                                                                            threshold=40)
+                                if not processed_pixmap.isNull():
+                                    item['pixmap'] = processed_pixmap
+                                    self.update()
+                            elif action == save_as_action:
+                                self.main_window.save_image_as(item['pixmap'])
                             return
             if event.button() == Qt.LeftButton:
+                # Отключаем режим папки, если кликнули в пустое место
+                if self.active_folder_item:
+                    self.active_folder_item = None
+                    self.folder_files = []
+                    self.folder_index = -1
                 self.deselect_all_images()
 
     def commit_text(self):
@@ -538,13 +555,11 @@ class OverlayWidget(QWidget):
             item = {'type': 'text', 'color': self.text_color, 'font_size': self.text_font_size, 'pos': pos,
                     'text': text}
             self.drawings.append(item)
-
             p = QPainter(self.canvas)
             p.setRenderHint(QPainter.Antialiasing)
             self.draw_item_on_painter(p, item)
             p.end()
             self.update()
-
         self.text_input.deleteLater()
         self.text_input = None
         self.text_color = None
@@ -568,7 +583,6 @@ class OverlayWidget(QWidget):
                 p.setRenderHint(QPainter.Antialiasing)
                 self.draw_item_on_painter(p, self.current_item)
                 p.end()
-
                 padding = self.current_item['width'] + 10
                 rect = QRect(self.last_pos if self.last_pos else event.pos(), event.pos()).normalized()
                 self.update(rect.adjusted(-padding, -padding, padding, padding))
@@ -578,88 +592,65 @@ class OverlayWidget(QWidget):
                 self.current_item['path'] = self.get_shape_path(self.current_item['shape_type'], self.shape_start_pos,
                                                                 self.shape_end_pos, self.pen_width)
                 self.update()
-
         elif self.screenshot_start_pos is not None:
             self.screenshot_end_pos = event.pos()
             self.update()
-
         elif self.moving_image:
             if not (event.buttons() & Qt.LeftButton): return
             new_tl = event.pos() - self.move_offset
             shift = new_tl - self.moving_image['points'][0]
             self.moving_image['points'] = [p + shift for p in self.moving_image['points']]
             self.update()
-
         elif self.resizing_image:
             if not (event.buttons() & (Qt.LeftButton | Qt.RightButton)): return
-
             delta = event.pos() - self.resize_start_pos
             item = self.resizing_image
             pts = self.resize_start_points
             if len(pts) < 4: return
-
             tl, tr, br, bl = pts[0], pts[1], pts[2], pts[3]
-
             try:
-                # ЛКМ по TR (Оранжевый угол) - Пропорциональное растягивание
                 if self.resize_button == Qt.LeftButton and self.resizing_handle == 'TR':
-                    vx = tr.x() - tl.x()
+                    vx = tr.x() - tl.x();
                     vy = tr.y() - tl.y()
                     start_w = math.hypot(vx, vy)
                     if start_w == 0: start_w = 1.0
-
                     proj = (delta.x() * vx + delta.y() * vy) / start_w
                     new_w = start_w + proj
                     if new_w < 20: new_w = 20
-
                     scale = new_w / start_w
                     new_tr = QPointF(tl.x() + vx * scale, tl.y() + vy * scale)
                     new_bl = QPointF(tl.x() + (bl.x() - tl.x()) * scale, tl.y() + (bl.y() - tl.y()) * scale)
                     new_br = QPointF(new_tr.x() + (new_bl.x() - tl.x()), new_tr.y() + (new_bl.y() - tl.y()))
                     item['points'] = [tl, new_tr, new_br, new_bl]
-
-                # ПКМ по ЛЮБОМУ углу - Сдвиг стороны (Параллелограмм)
                 elif self.resize_button == Qt.RightButton:
                     new_tl = QPointF(tl.x() + delta.x(), tl.y() + delta.y())
                     new_tr = QPointF(tr.x() + delta.x(), tr.y() + delta.y())
                     new_br = QPointF(br.x() + delta.x(), br.y() + delta.y())
                     new_bl = QPointF(bl.x() + delta.x(), bl.y() + delta.y())
-
                     if self.resizing_handle == 'TR':
-                        item['points'] = [tl, new_tr, new_br, bl]  # Двигается ПРАВАЯ грань
+                        item['points'] = [tl, new_tr, new_br, bl]
                     elif self.resizing_handle == 'BR':
-                        item['points'] = [tl, tr, new_br, new_bl]  # Двигается НИЖНЯЯ грань
+                        item['points'] = [tl, tr, new_br, new_bl]
                     elif self.resizing_handle == 'BL':
-                        item['points'] = [tl, tr, new_br, new_bl]  # Двигается НИЖНЯЯ грань (как у BR)
+                        item['points'] = [tl, tr, new_br, new_bl]
                     elif self.resizing_handle == 'TL':
-                        item['points'] = [new_tl, tr, br, new_bl]  # Двигается ЛЕВАЯ грань (противоположно TR)
-
-                # ЛКМ по остальным углам (BR, BL, TL) - Жесткий прямоугольник (без перекоса)
+                        item['points'] = [new_tl, tr, br, new_bl]
                 else:
                     if self.resizing_handle == 'BR':
                         new_br = QPointF(br.x() + delta.x(), br.y() + delta.y())
-                        new_tr = QPointF(new_br.x(), tl.y())
-                        new_bl = QPointF(tl.x(), new_br.y())
-                        item['points'] = [tl, new_tr, new_br, new_bl]
+                        item['points'] = [tl, QPointF(new_br.x(), tl.y()), new_br, QPointF(tl.x(), new_br.y())]
                     elif self.resizing_handle == 'TL':
                         new_tl = QPointF(tl.x() + delta.x(), tl.y() + delta.y())
-                        new_tr = QPointF(br.x(), new_tl.y())
-                        new_bl = QPointF(new_tl.x(), br.y())
-                        item['points'] = [new_tl, new_tr, br, new_bl]
+                        item['points'] = [new_tl, QPointF(br.x(), new_tl.y()), br, QPointF(new_tl.x(), br.y())]
                     elif self.resizing_handle == 'BL':
                         new_bl = QPointF(bl.x() + delta.x(), bl.y() + delta.y())
-                        new_tl = QPointF(new_bl.x(), tr.y())
-                        new_br = QPointF(tr.x(), new_bl.y())
-                        item['points'] = [new_tl, tr, new_br, new_bl]
+                        item['points'] = [QPointF(new_bl.x(), tr.y()), tr, QPointF(tr.x(), new_bl.y()), new_bl]
                     elif self.resizing_handle == 'TR':
                         new_tr = QPointF(tr.x() + delta.x(), tr.y() + delta.y())
-                        new_tl = QPointF(bl.x(), new_tr.y())
-                        new_br = QPointF(new_tr.x(), bl.y())
-                        item['points'] = [new_tl, new_tr, new_br, bl]
-
+                        item['points'] = [QPointF(bl.x(), new_tr.y()), new_tr, QPointF(new_tr.x(), bl.y()), bl]
                 self.update()
             except Exception:
-                pass  # Защита от крашей при сверхбыстром растягивании
+                pass
 
     def mouseReleaseEvent(self, event):
         if event.button() not in (Qt.LeftButton, Qt.RightButton): return
@@ -687,14 +678,15 @@ class OverlayWidget(QWidget):
                     screenshot_pixmap = desktop_pixmap.copy(pixmap_rect)
                     if not screenshot_pixmap.isNull():
                         QApplication.clipboard().setPixmap(screenshot_pixmap)
-                        try:
-                            temp_dir = tempfile.gettempdir()
-                            filename = f"paste_pen_{int(time.time())}.png"
-                            file_path = os.path.join(temp_dir, filename)
-                            screenshot_pixmap.save(file_path, "PNG")
-                            os.startfile(file_path)
-                        except Exception:
-                            pass
+                        if self.screenshot_open_file:
+                            try:
+                                temp_dir = tempfile.gettempdir()
+                                filename = f"paste_pen_{int(time.time())}.png"
+                                file_path = os.path.join(temp_dir, filename)
+                                screenshot_pixmap.save(file_path, "PNG")
+                                QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
+                            except Exception:
+                                pass
             self.is_capturing = False
             self.set_tool("cursor")
             self.update()
@@ -705,20 +697,61 @@ class OverlayWidget(QWidget):
                 self.current_item = None
                 self.update()
                 return
-
             self.drawings.append(self.current_item)
             if self.current_item['type'] == 'shape':
                 p = QPainter(self.canvas)
                 p.setRenderHint(QPainter.Antialiasing)
                 self.draw_item_on_painter(p, self.current_item)
                 p.end()
-
             self.current_item = None
             self.last_pos = None
             self.update()
 
         self.moving_image = None
         self.resizing_image = None
+
+    def wheelEvent(self, event):
+        # Обработка прокрутки колесика для режима папки
+        if self.active_folder_item and self.tool == "select":
+            delta = event.angleDelta().y()
+            if delta > 0:
+                # Прокрутка вверх
+                self.folder_index = (self.folder_index - 1) % len(self.folder_files)
+            else:
+                # Прокрутка вниз
+                self.folder_index = (self.folder_index + 1) % len(self.folder_files)
+
+            file_path = self.folder_files[self.folder_index]
+            new_pixmap = QPixmap(file_path)
+            if not new_pixmap.isNull():
+                # Если выбран режим удаления фона, обрабатываем pixmap
+                if self.folder_remove_bg:
+                    new_pixmap = self.main_window.remove_chart_background(new_pixmap, threshold=40)
+
+                if new_pixmap.width() > 1500 or new_pixmap.height() > 1500:
+                    new_pixmap = new_pixmap.scaled(1500, 1500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+                # Сохраняем текущий левый верхний угол
+                old_tl = self.active_folder_item['points'][0]
+
+                w = new_pixmap.width()
+                h = new_pixmap.height()
+
+                # Формируем новые точки (прямоугольник) исходя из новых размеров
+                self.active_folder_item['points'] = [
+                    QPointF(old_tl.x(), old_tl.y()),
+                    QPointF(old_tl.x() + w, old_tl.y()),
+                    QPointF(old_tl.x() + w, old_tl.y() + h),
+                    QPointF(old_tl.x(), old_tl.y() + h)
+                ]
+
+                self.active_folder_item['pixmap'] = new_pixmap
+                self.update()
+
+            event.accept()
+            return
+
+        super().wheelEvent(event)
 
     def insert_pixmap(self, pixmap):
         if pixmap.isNull(): return
@@ -735,11 +768,57 @@ class OverlayWidget(QWidget):
         self.set_tool("select")
         self.update()
 
+    def load_folder(self, folder_path, remove_bg=False):
+        valid_ext = ['.png', '.jpg', '.jpeg', '.bmp', '.gif']
+        files = []
+        try:
+            for f in sorted(os.listdir(folder_path)):
+                if os.path.splitext(f)[1].lower() in valid_ext:
+                    files.append(os.path.join(folder_path, f))
+        except Exception:
+            return False
+
+        if not files:
+            return False
+
+        self.folder_files = files
+        self.folder_index = 0
+        self.folder_remove_bg = remove_bg
+
+        pixmap = QPixmap(files[0])
+
+        if pixmap.isNull(): return False
+
+        if self.folder_remove_bg:
+            pixmap = self.main_window.remove_chart_background(pixmap, threshold=40)
+
+        if pixmap.width() > 1500 or pixmap.height() > 1500:
+            pixmap = pixmap.scaled(1500, 1500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        x = self.width() // 2 - pixmap.width() // 2
+        y = self.height() // 2 - pixmap.height() // 2
+        w = pixmap.width()
+        h = pixmap.height()
+        points = [QPointF(x, y), QPointF(x + w, y), QPointF(x + w, y + h), QPointF(x, y + h)]
+
+        self.save_state()
+        self.deselect_all_images()
+        self.drawings.append({'type': 'image', 'pixmap': pixmap, 'points': points, 'selected': True, 'layer': 'front'})
+        self.active_folder_item = self.drawings[-1]  # Запоминаем элемент как активный для прокрутки
+
+        self.tool = "select"  # Включаем режим выбора
+        self.update_cursor()
+        self.update()
+        return True
+
     def clear_all(self):
         self.commit_text()
         self.save_state()
         self.canvas.fill(Qt.transparent)
         self.drawings = []
+        self.active_folder_item = None
+        self.folder_files = []
+        self.folder_index = -1
         self.update()
 
     def toggle_hide(self):
@@ -762,7 +841,6 @@ class MainWindow(QMainWindow):
         self.anim = None
         self.fixed_width = 150
 
-        # --- Иконка в системном трее ---
         self.tray_icon = QSystemTrayIcon(self)
         tray_pixmap = QPixmap(32, 32)
         tray_pixmap.fill(Qt.transparent)
@@ -786,11 +864,9 @@ class MainWindow(QMainWindow):
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.activated.connect(
             lambda reason: self.toggle_collapse() if reason == QSystemTrayIcon.Trigger else None)
-        # ---------------------------------
 
         self.settings = QSettings("PastePenApp", "PastePen")
-        self.lang = self.settings.value("language", "RU", type=str)
-
+        self.lang = self.settings.value("language", "EN", type=str)
         self.theme = self.settings.value("theme", "dark", type=str)
         self.icon_color = "white" if self.theme == "dark" else "#333333"
 
@@ -804,15 +880,22 @@ class MainWindow(QMainWindow):
                 "exit": "Выход",
                 "width": "Толщина: {}", "size": "Размер: {}",
                 "line": "Линия", "rect": "Прямоугольник", "ellipse": "Эллипс", "arrow": "Стрелка",
-                "next_lang": "EN", "donate_tip": "Поддержать на Boosty", "cursor_tip": "Переключение на курсор: ЛКМ + ПКМ",
-                "lang_ru": "Русский", "lang_en": "Английский", "lang_zh": "Китайский",
+                "next_lang": "中", "donate_tip": "Поддержать на Boosty",
                 "cursor_tip": "Переключение на курсор: ЛКМ + ПКМ",
                 "color_tip": "ЛКМ: цвет левой кнопки\nПКМ: цвет правой кнопки",
-                "paste_img": "Вставить из буфера", "no_img_clip": "В буфере обмена нет изображения.",
+                "paste_img": "Вставить из буфера", "paste_chart_img": "Вставить из буфера без фона",
+                "insert_img_from_file": "Вставить из файла", "paste_img_no_bg": "Вставить из файла без фона",
+                "insert_folder_wheel": "Вставить папку (колесико мыши)",
+                "insert_folder_no_bg_wheel": "Вставить папку без фона (колесико мыши)",
+                "no_img_clip": "В буфере обмена нет изображения.",
+                "no_img_folder": "В выбранной папке нет изображений.",
                 "theme_light": "Светлая тема", "theme_dark": "Темная тема",
                 "eraser_tip": "ЛКМ: стирание ластиком\nПКМ: удаление линии целиком",
                 "normal_cursor": "Обычный курсор", "laser_cursor": "Лазерная указка",
-                "laser_tip": "Курсор станет красной точкой.\n(Клики заблокированы до возврата на обычный курсор)"
+                "laser_tip": "Курсор станет красной точкой.\n(Клики заблокированы до возврата на обычный курсор)",
+                "lang_ru": "Русский", "lang_en": "Английский", "lang_zh": "Китайский",
+                "save_as": "Сохранить как...", "remove_bg": "Убрать фон",
+                "screenshot_tip": "ЛКМ: копирование в буфер и открытие файла\nПКМ мыши: только копирование в буфер"
             },
             "EN": {
                 "cursor": "Cursor", "pen": "Pen", "shape": "Shapes", "text": "Text",
@@ -823,15 +906,21 @@ class MainWindow(QMainWindow):
                 "exit": "Exit",
                 "width": "Width: {}", "size": "Size: {}",
                 "line": "Line", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Arrow",
-                "next_lang": "中", "donate_tip": "Support on DonationAlerts", "cursor_tip": "Switch to cursor: LMB + RMB",
-                "lang_ru": "Russian", "lang_en": "English", "lang_zh": "Chinese",
+                "next_lang": "РУ", "donate_tip": "Support on DonationAlerts",
                 "cursor_tip": "Switch to cursor: LMB + RMB",
                 "color_tip": "LMB: left button color\nRMB: right button color",
-                "paste_img": "Paste from Clipboard", "no_img_clip": "No image in clipboard.",
+                "paste_img": "Paste from clipboard", "paste_chart_img": "Paste from clipboard without background",
+                "insert_img_from_file": "Insert from file", "paste_img_no_bg": "Insert from file without background",
+                "insert_folder_wheel": "Insert folder (mouse wheel)",
+                "insert_folder_no_bg_wheel": "Insert folder without background (mouse wheel)",
+                "no_img_clip": "No image in clipboard.", "no_img_folder": "No images found in the selected folder.",
                 "theme_light": "Light Theme", "theme_dark": "Dark Theme",
                 "eraser_tip": "LMB: erase pixels\nRMB: delete entire line",
                 "normal_cursor": "Normal Cursor", "laser_cursor": "Laser Pointer",
-                "laser_tip": "Cursor becomes a red dot.\n(Clicks are blocked until returning to normal cursor)"
+                "laser_tip": "Cursor becomes a red dot.\n(Clicks are blocked until returning to normal cursor)",
+                "lang_ru": "Russian", "lang_en": "English", "lang_zh": "Chinese",
+                "save_as": "Save As...", "remove_bg": "Remove background",
+                "screenshot_tip": "LMB: copy to clipboard and open file\nRMB: copy to clipboard only"
             },
             "ZH": {
                 "cursor": "光标", "pen": "画笔", "shape": "形状", "text": "文本",
@@ -842,15 +931,21 @@ class MainWindow(QMainWindow):
                 "exit": "退出",
                 "width": "粗细: {}", "size": "大小: {}",
                 "line": "直线", "rect": "矩形", "ellipse": "椭圆", "arrow": "箭头",
-                "next_lang": "RU", "donate_tip": "在 DonationAlerts 上支持", "cursor_tip": "切换到光标: 鼠标左键 + 右键",
-                "lang_ru": "俄语", "lang_en": "英语", "lang_zh": "中文",
+                "next_lang": "EN", "donate_tip": "在 DonationAlerts 上支持",
                 "cursor_tip": "切换到光标: 鼠标左键 + 右键",
                 "color_tip": "左键: 左键颜色\n右键: 右键颜色",
-                "paste_img": "从剪贴板粘贴", "no_img_clip": "剪贴板中没有图像。",
+                "paste_img": "从剪贴板粘贴", "paste_chart_img": "从剪贴板粘贴无背景",
+                "insert_img_from_file": "从文件插入", "paste_img_no_bg": "从文件插入无背景图片",
+                "insert_folder_wheel": "插入文件夹 (鼠标滚轮)",
+                "insert_folder_no_bg_wheel": "插入无背景文件夹 (鼠标滚轮)", "no_img_clip": "剪贴板中没有图像。",
+                "no_img_folder": "所选文件夹中没有图像。",
                 "theme_light": "浅色主题", "theme_dark": "深色主题",
                 "eraser_tip": "左键: 擦除像素\n右键: 删除整条线",
                 "normal_cursor": "普通光标", "laser_cursor": "激光笔",
-                "laser_tip": "光标变为红点。\n（在返回普通光标前点击被阻止）"
+                "laser_tip": "光标变为红点。\n（在返回普通光标前点击被阻止）",
+                "lang_ru": "俄语", "lang_en": "英语", "lang_zh": "中文",
+                "save_as": "另存为...", "remove_bg": "移除背景",
+                "screenshot_tip": "鼠标左键: 复制到剪贴板并打开文件\n鼠标右键: 仅复制到剪贴板"
             }
         }
         tr = self.translations[self.lang]
@@ -858,11 +953,9 @@ class MainWindow(QMainWindow):
         self.toolbar_widget = QFrame(self)
         self.toolbar_widget.setObjectName("ToolbarContainer")
         self.toolbar_widget.setContentsMargins(0, 0, 0, 0)
-
         layout = QVBoxLayout(self.toolbar_widget)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(2)
-
         self.setCentralWidget(self.toolbar_widget)
 
         self.all_buttons = []
@@ -915,10 +1008,10 @@ class MainWindow(QMainWindow):
 
         self.btn_donate = QToolButton(self.toolbar_widget)
         self.btn_donate.setIcon(get_svg_icon(ICON_RUBLE, self.icon_color))
-        self.btn_donate.setIconSize(QSize(24, 24))
+        self.btn_donate.setIconSize(QSize(20, 20))
         self.btn_donate.setToolTip(tr["donate_tip"])
         self.btn_donate.clicked.connect(self.open_donate_link)
-        self.btn_donate.setFixedSize(38, 32)
+        self.btn_donate.setFixedSize(36, 32)
         row2_layout.addWidget(self.btn_donate)
 
         top_v_layout.addLayout(row2_layout)
@@ -964,13 +1057,30 @@ class MainWindow(QMainWindow):
         self.act_paste_img = QAction(tr["paste_img"], self.btn_image)
         self.act_paste_img.triggered.connect(self.paste_image_from_clipboard)
         self.btn_image.addAction(self.act_paste_img)
+        self.act_paste_chart_img = QAction(tr["paste_chart_img"], self.btn_image)
+        self.act_paste_chart_img.triggered.connect(self.paste_chart_from_clipboard)
+        self.btn_image.addAction(self.act_paste_chart_img)
+        self.act_load_img = QAction(tr["insert_img_from_file"], self.btn_image)
+        self.act_load_img.triggered.connect(self.load_image)
+        self.btn_image.addAction(self.act_load_img)
+        self.act_load_img_no_bg = QAction(tr["paste_img_no_bg"], self.btn_image)
+        self.act_load_img_no_bg.triggered.connect(self.load_image_no_bg)
+        self.btn_image.addAction(self.act_load_img_no_bg)
+        self.act_load_folder = QAction(tr["insert_folder_wheel"], self.btn_image)
+        self.act_load_folder.triggered.connect(self.load_folder_wheel)
+        self.btn_image.addAction(self.act_load_folder)
+        self.act_load_folder_no_bg = QAction(tr["insert_folder_no_bg_wheel"], self.btn_image)
+        self.act_load_folder_no_bg.triggered.connect(self.load_folder_no_bg_wheel)
+        self.btn_image.addAction(self.act_load_folder_no_bg)
         layout.addWidget(self.btn_image)
 
         self.btn_select = self.create_tool_button(tr["select"], ICON_SELECT, lambda: self.overlay.set_tool("select"))
         layout.addWidget(self.btn_select)
 
-        self.btn_screenshot = self.create_tool_button(tr["screenshot"], ICON_SCREENSHOT,
-                                                      lambda: self.overlay.set_tool("screenshot"))
+        self.btn_screenshot = self.create_tool_button(tr["screenshot"], ICON_SCREENSHOT, self.set_screenshot_tool_open)
+        self.btn_screenshot.setToolTip(tr["screenshot_tip"])
+        self.btn_screenshot.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.btn_screenshot.customContextMenuRequested.connect(self.set_screenshot_tool_silent)
         layout.addWidget(self.btn_screenshot)
 
         self.btn_hide = self.create_tool_button(tr["hide"], ICON_HIDE, self.toggle_hide_mode)
@@ -986,30 +1096,39 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_exit)
 
         self.apply_theme()
-
         self.calculate_fixed_width()
         screen = QApplication.primaryScreen().geometry()
         self.resize(self.fixed_width, self.sizeHint().height())
         self.move(20, screen.height() // 2 - self.height() // 2)
 
+    def remove_chart_background(self, pixmap, threshold=40):
+        if pixmap.isNull(): return pixmap
+        qimg = pixmap.toImage().convertToFormat(QImage.Format_RGBA8888)
+        w, h = qimg.width(), qimg.height()
+
+        ptr = qimg.bits()
+        ptr.setsize(qimg.byteCount())
+        arr = np.frombuffer(ptr, dtype=np.uint8).reshape((h, w, 4)).copy()
+
+        bg_color = arr[0, 0, :3].astype(float)
+        distances = np.sqrt(np.sum((arr[:, :, :3].astype(float) - bg_color) ** 2, axis=-1))
+        alpha = np.clip((distances - threshold / 2) / (threshold / 2) * 255, 0, 255).astype(np.uint8)
+        arr[:, :, 3] = alpha
+
+        new_qimg = QImage(arr.data, w, h, 4 * w, QImage.Format_RGBA8888)
+        new_pixmap = QPixmap.fromImage(new_qimg.copy())
+        return new_pixmap
+
     def apply_theme(self):
         if self.theme == "dark":
             self.icon_color = "white"
             self.setStyleSheet("""
-                QFrame#ToolbarContainer {
-                    background: #1e1e1e; border: 1px solid #0a0a0a; border-radius: 12px;
-                }
-                QToolButton {
-                    color: #e0e0e0; background: transparent; border: none; border-radius: 6px;
-                    padding: 4px 8px 4px 8px; font-size: 18px; font-family: Segoe UI; text-align: left;
-                }
+                QFrame#ToolbarContainer { background: #1e1e1e; border: 1px solid #0a0a0a; border-radius: 12px; }
+                QToolButton { color: #e0e0e0; background: transparent; border: none; border-radius: 6px; padding: 4px 8px 4px 8px; font-size: 18px; font-family: Segoe UI; text-align: left; }
                 QToolButton:hover { background: #333333; color: white; }
                 QToolButton:pressed { background: #404040; }
                 QToolButton::menu-indicator { image: none; }
-                QMenu {
-                    background: #1e1e1e; border: 1px solid #0a0a0a; border-radius: 8px; color: #e0e0e0;
-                    padding: 8px; font-size: 18px; 
-                }
+                QMenu { background: #1e1e1e; border: 1px solid #0a0a0a; border-radius: 8px; color: #e0e0e0; padding: 8px; font-size: 18px; }
                 QMenu::item { background: transparent; padding: 10px 30px; border-radius: 4px; }
                 QMenu::item:selected { background: #333333; }
                 QMenu::separator { height: 1px; background: #333333; margin: 5px 10px; }
@@ -1019,20 +1138,12 @@ class MainWindow(QMainWindow):
         else:
             self.icon_color = "black"
             self.setStyleSheet("""
-                QFrame#ToolbarContainer {
-                    background: #f0f0f0; border: 1px solid #cccccc; border-radius: 12px;
-                }
-                QToolButton {
-                    color: #222222; background: transparent; border: none; border-radius: 6px;
-                    padding: 4px 8px 4px 8px; font-size: 18px; font-family: Segoe UI; text-align: left;
-                }
+                QFrame#ToolbarContainer { background: #f0f0f0; border: 1px solid #cccccc; border-radius: 12px; }
+                QToolButton { color: #222222; background: transparent; border: none; border-radius: 6px; padding: 4px 8px 4px 8px; font-size: 18px; font-family: Segoe UI; text-align: left; }
                 QToolButton:hover { background: #dcdcdc; color: black; }
                 QToolButton:pressed { background: #d0d0d0; }
                 QToolButton::menu-indicator { image: none; }
-                QMenu {
-                    background: #f0f0f0; border: 1px solid #cccccc; border-radius: 8px; color: #222222;
-                    padding: 8px; font-size: 18px; 
-                }
+                QMenu { background: #f0f0f0; border: 1px solid #cccccc; border-radius: 8px; color: #222222; padding: 8px; font-size: 18px; }
                 QMenu::item { background: transparent; padding: 10px 30px; border-radius: 4px; }
                 QMenu::item:selected { background: #dcdcdc; }
                 QMenu::separator { height: 1px; background: #cccccc; margin: 5px 10px; }
@@ -1042,18 +1153,12 @@ class MainWindow(QMainWindow):
 
         for btn in self.all_buttons:
             svg = btn.property("svg")
-            if svg:
-                btn.setIcon(get_svg_icon(svg, self.icon_color))
-
+            if svg: btn.setIcon(get_svg_icon(svg, self.icon_color))
         self.btn_collapse.setIcon(get_svg_icon(ICON_COLLAPSE, self.icon_color))
         self.btn_toggle_text.setIcon(get_svg_icon(ICON_TOGGLE_TEXT, self.icon_color))
-
-        if self.overlay.tool == "laser":
-            self.btn_cursor.setIcon(get_svg_icon(ICON_LASER, self.icon_color))
-
+        if self.overlay.tool == "laser": self.btn_cursor.setIcon(get_svg_icon(ICON_LASER, self.icon_color))
         self.set_shape_type(self.overlay.shape_type)
         self.update_hide_button_state()
-
         if self.lang == "EN":
             self.btn_donate.setIcon(get_svg_icon(ICON_DOLLAR, self.icon_color))
         elif self.lang == "ZH":
@@ -1069,13 +1174,30 @@ class MainWindow(QMainWindow):
         act_dark = menu.addAction(tr["theme_dark"])
         action = menu.exec_(self.btn_toggle_text.mapToGlobal(pos))
         if action == act_light:
-            self.theme = "light"
-            self.settings.setValue("theme", self.theme)
+            self.theme = "light";
+            self.settings.setValue("theme", self.theme);
             self.apply_theme()
         elif action == act_dark:
-            self.theme = "dark"
-            self.settings.setValue("theme", self.theme)
+            self.theme = "dark";
+            self.settings.setValue("theme", self.theme);
             self.apply_theme()
+
+    def show_language_menu(self, pos):
+        menu = QMenu(self)
+        menu.setStyleSheet(self.styleSheet())
+        tr = self.translations[self.lang]
+
+        act_en = menu.addAction(tr["lang_en"])
+        act_ru = menu.addAction(tr["lang_ru"])
+        act_zh = menu.addAction(tr["lang_zh"])
+
+        action = menu.exec_(self.btn_lang.mapToGlobal(pos))
+        if action == act_en:
+            self.set_language("EN")
+        elif action == act_ru:
+            self.set_language("RU")
+        elif action == act_zh:
+            self.set_language("ZH")
 
     def calculate_fixed_width(self):
         if self.icons_only:
@@ -1106,8 +1228,7 @@ class MainWindow(QMainWindow):
             if isinstance(item, tuple):
                 name, val = item
             else:
-                name = text_format.format(item)
-                val = item
+                name = text_format.format(item); val = item
             act = QAction(name, btn)
             act.triggered.connect(lambda checked, v=val: callback(v))
             btn.addAction(act)
@@ -1119,32 +1240,15 @@ class MainWindow(QMainWindow):
             webbrowser.open("https://boosty.to/yaroslavkhmelev/donate")
 
     def toggle_language(self):
-        if self.lang == "RU":
-            self.lang = "EN"
-        elif self.lang == "EN":
+        if self.lang == "EN":
+            self.lang = "RU"
+        elif self.lang == "RU":
             self.lang = "ZH"
         else:
-            self.lang = "RU"
+            self.lang = "EN"
 
         self.settings.setValue("language", self.lang)
         self.update_language()
-
-    def show_language_menu(self, pos):
-        menu = QMenu(self)
-        menu.setStyleSheet(self.styleSheet())
-        tr = self.translations[self.lang]
-
-        act_ru = menu.addAction(tr["lang_ru"])
-        act_en = menu.addAction(tr["lang_en"])
-        act_zh = menu.addAction(tr["lang_zh"])
-
-        action = menu.exec_(self.btn_lang.mapToGlobal(pos))
-        if action == act_ru:
-            self.set_language("RU")
-        elif action == act_en:
-            self.set_language("EN")
-        elif action == act_zh:
-            self.set_language("ZH")
 
     def set_language(self, lang):
         if self.lang != lang:
@@ -1166,16 +1270,20 @@ class MainWindow(QMainWindow):
         self.btn_color.setText("  " + tr["color"])
         self.btn_color.setToolTip(tr["color_tip"])
         self.act_paste_img.setText(tr["paste_img"])
+        self.act_paste_chart_img.setText(tr["paste_chart_img"])
+        self.act_load_img.setText(tr["insert_img_from_file"])
+        self.act_load_img_no_bg.setText(tr["paste_img_no_bg"])
+        self.act_load_folder.setText(tr["insert_folder_wheel"])
+        self.act_load_folder_no_bg.setText(tr["insert_folder_no_bg_wheel"])
         self.btn_image.setText("  " + tr["image"])
         self.btn_select.setText("  " + tr["select"])
         self.btn_screenshot.setText("  " + tr["screenshot"])
+        self.btn_screenshot.setToolTip(tr["screenshot_tip"])
         self.btn_undo.setText("  " + tr["undo"])
 
         self.update_hide_button_state()
-
         self.btn_donate.setToolTip(tr["donate_tip"])
         self.btn_lang.setText(tr["next_lang"])
-
         self.btn_clear.setText("  " + tr["clear"])
         self.btn_exit.setText("  " + tr["exit"])
 
@@ -1188,7 +1296,6 @@ class MainWindow(QMainWindow):
 
         for btn in [self.btn_pen, self.btn_shape, self.btn_text, self.btn_eraser]:
             for action in btn.actions(): btn.removeAction(action)
-
         self.setup_menu(self.btn_pen, [2, 5, 10, 20, 30, 50], self.set_pen_width, tr["width"])
         self.setup_menu(self.btn_shape, [(tr["line"], "line"), (tr["rect"], "rect"), (tr["ellipse"], "ellipse"),
                                          (tr["arrow"], "arrow")], self.set_shape_type)
@@ -1205,19 +1312,19 @@ class MainWindow(QMainWindow):
         for btn in self.all_buttons:
             btn.setToolButtonStyle(style)
             if self.icons_only:
-                btn.setMinimumWidth(0)
+                btn.setMinimumWidth(0);
                 btn.setFixedSize(44, 32)
             else:
-                btn.setMinimumSize(0, 0)
-                btn.setMaximumSize(16777215, 16777215)
+                btn.setMinimumSize(0, 0);
+                btn.setMaximumSize(16777215, 16777215);
                 btn.setMinimumWidth(130)
         if self.icons_only:
-            self.btn_donate.hide()
-            self.btn_lang.hide()
+            self.btn_donate.hide();
+            self.btn_lang.hide();
             self.app_title.hide()
         else:
-            self.btn_donate.show()
-            self.btn_lang.show()
+            self.btn_donate.show();
+            self.btn_lang.show();
             self.app_title.show()
         self.calculate_fixed_width()
         target_rect = QRect(start_rect.topLeft(), QSize(self.fixed_width, self.sizeHint().height()))
@@ -1225,8 +1332,7 @@ class MainWindow(QMainWindow):
 
     def toggle_hide_mode(self):
         self.overlay.toggle_hide()
-        if self.overlay.is_hidden:
-            self.set_normal_cursor()
+        if self.overlay.is_hidden: self.set_normal_cursor()
         self.update_hide_button_state()
 
     def update_hide_button_state(self):
@@ -1237,7 +1343,6 @@ class MainWindow(QMainWindow):
         else:
             self.btn_hide.setText("  " + tr["hide"])
             self.btn_hide.setIcon(get_svg_icon(ICON_HIDE, self.icon_color))
-
         if self.icons_only:
             start_rect = self.geometry()
             self.calculate_fixed_width()
@@ -1250,20 +1355,18 @@ class MainWindow(QMainWindow):
             self.is_collapsed = True
             self.setMinimumSize(0, 0)
             for btn in self.all_buttons: btn.hide()
-            self.btn_toggle_text.hide()
-            self.btn_donate.hide()
-            self.btn_lang.hide()
+            self.btn_toggle_text.hide();
+            self.btn_donate.hide();
+            self.btn_lang.hide();
             self.app_title.hide()
-            collapsed_width = 56
-            collapsed_height = 44
-            target_rect = QRect(start_rect.left(), start_rect.top(), collapsed_width, collapsed_height)
+            target_rect = QRect(start_rect.left(), start_rect.top(), 56, 44)
         else:
             self.is_collapsed = False
             for btn in self.all_buttons: btn.show()
             self.btn_toggle_text.show()
             if not self.icons_only:
-                self.btn_donate.show()
-                self.btn_lang.show()
+                self.btn_donate.show();
+                self.btn_lang.show();
                 self.app_title.show()
             target_rect = QRect(start_rect.left(), start_rect.top(), self.fixed_width, self.sizeHint().height())
         self.animate_geometry(start_rect, target_rect)
@@ -1312,17 +1415,23 @@ class MainWindow(QMainWindow):
         if self.overlay.is_hidden:
             self.overlay.is_hidden = False
             self.update_hide_button_state()
-
         self.overlay.laser_mode = not self.overlay.laser_mode
         self.overlay.update_cursor()
         self.overlay.update()
-
         if self.overlay.laser_mode:
             self.btn_cursor.setIcon(get_svg_icon(ICON_LASER, self.icon_color))
             self.btn_cursor.setToolTip(self.translations[self.lang]["laser_tip"])
         else:
             self.btn_cursor.setIcon(get_svg_icon(ICON_CURSOR, self.icon_color))
             self.btn_cursor.setToolTip(self.translations[self.lang]["cursor_tip"])
+
+    def set_screenshot_tool_open(self):
+        self.overlay.screenshot_open_file = True
+        self.overlay.set_tool("screenshot")
+
+    def set_screenshot_tool_silent(self):
+        self.overlay.screenshot_open_file = False
+        self.overlay.set_tool("screenshot")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -1344,7 +1453,7 @@ class MainWindow(QMainWindow):
         if color.isValid():
             self.overlay.left_color = color
             self.overlay.set_tool("pen")
-            self.raise_()
+            self.raise_();
             self.activateWindow()
 
     def choose_right_color(self, pos):
@@ -1352,7 +1461,7 @@ class MainWindow(QMainWindow):
         if color.isValid():
             self.overlay.right_color = color
             self.overlay.set_tool("pen")
-            self.raise_()
+            self.raise_();
             self.activateWindow()
 
     def load_image(self):
@@ -1360,8 +1469,38 @@ class MainWindow(QMainWindow):
         if file_path:
             pixmap = QPixmap(file_path)
             self.overlay.insert_pixmap(pixmap)
-            self.raise_()
+            self.raise_();
             self.activateWindow()
+
+    def load_image_no_bg(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Открыть изображение", "", "PNG Images (*.png)")
+        if file_path:
+            pixmap = QPixmap(file_path)
+            if not pixmap.isNull():
+                processed_pixmap = self.remove_chart_background(pixmap, threshold=40)
+                self.overlay.insert_pixmap(processed_pixmap)
+                self.raise_();
+                self.activateWindow()
+
+    def load_folder_wheel(self):
+        folder_path = QFileDialog.getExistingDirectory(self, "Выберите папку с изображениями")
+        if folder_path:
+            success = self.overlay.load_folder(folder_path, remove_bg=False)
+            if not success:
+                QMessageBox.information(self, "Paste Pen", self.translations[self.lang]["no_img_folder"])
+            else:
+                self.raise_();
+                self.activateWindow()
+
+    def load_folder_no_bg_wheel(self):
+        folder_path = QFileDialog.getExistingDirectory(self, "Выберите папку с изображениями")
+        if folder_path:
+            success = self.overlay.load_folder(folder_path, remove_bg=True)
+            if not success:
+                QMessageBox.information(self, "Paste Pen", self.translations[self.lang]["no_img_folder"])
+            else:
+                self.raise_();
+                self.activateWindow()
 
     def paste_image_from_clipboard(self):
         clipboard = QApplication.clipboard()
@@ -1369,10 +1508,28 @@ class MainWindow(QMainWindow):
         if not image.isNull():
             pixmap = QPixmap.fromImage(image)
             self.overlay.insert_pixmap(pixmap)
-            self.raise_()
+            self.raise_();
             self.activateWindow()
         else:
             QMessageBox.information(self, "Paste Pen", self.translations[self.lang]["no_img_clip"])
+
+    def paste_chart_from_clipboard(self):
+        clipboard = QApplication.clipboard()
+        image = clipboard.image()
+        if not image.isNull():
+            pixmap = QPixmap.fromImage(image)
+            processed_pixmap = self.remove_chart_background(pixmap, threshold=40)
+            self.overlay.insert_pixmap(processed_pixmap)
+            self.raise_();
+            self.activateWindow()
+        else:
+            QMessageBox.information(self, "Paste Pen", self.translations[self.lang]["no_img_clip"])
+
+    def save_image_as(self, pixmap):
+        if pixmap.isNull(): return
+        file_path, _ = QFileDialog.getSaveFileName(self, "Сохранить как", "", "PNG Images (*.png)")
+        if file_path:
+            pixmap.save(file_path, "PNG")
 
     def close_app(self):
         self.is_closing = True
