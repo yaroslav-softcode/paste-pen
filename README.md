@@ -14,7 +14,7 @@ Paste Pen — это не требующая установки, удобная 
 Вставка изображений из файла и из буфера обмена с возможностью перемещения, пропорционального и свободного растягивания, и изменение формы.  
 Удаление фона для вставленных изображений (из буфера обмена или из файла). Идеально для вставки графиков и скриншотов!  
 Функция «Убрать фон» рабатает в любой момент после вставки картинки. Возможность сохранить обратно на компьюьер.  
-📽️ Режим презентаций (Вставка папки):
+📽️ Режим презентаций (Вставка папки):  
 Вставка папки (колесико мыши) позволяет перелистывать картинки прямо поверх рабочего стола, просто прокручивая колесико мыши (вверх — предыдущая, вниз — следующая)!  
 Вставка папки без фона: То же самое, но каждый файл при перелистывании будет автоматически очищаться от фона!  
 Управление слоями: перенос вставленных картинок на передний или задний план.   
@@ -64,6 +64,7 @@ Smart vector eraser: the left button erases pixels, while the right button delet
 Inserting images from a file or the clipboard with the ability to move, proportionally and freely resize, and change their shape.  
 Background Removal for images from the clipboard or from file. Perfect for pasting charts and screenshots!  
 Remove Background" button in the image context menu (right-click in "Select" mode). You can now remove the background at any time after insertion and save as a new file on computer.   
+📽️ Presentation Mode (Insert Folder):  
 Select a folder with images, and the first file will appear on the screen. Scroll through images right over your desktop simply by spinning the mouse wheel (up for previous, down for next)! The image retains its screen position while scrolling.
 Insert Folder without Background: Same as above, but each file will automatically have its background removed!  
 Layer management: bringing inserted images to the front or sending them to the back.  
