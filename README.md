@@ -1,100 +1,137 @@
 ![Paste Pen Screenshot](screenshot.png)
 
-✏️ Paste Pen  
+# ✏️ Paste Pen
 
-Paste Pen — это не требующая установки, удобная программа для рисования поверх экрана Windows, вставки изображений и создания скриншотов. Отличный аналог Epic Pen, gInk с расширенным функционалом.  
+**A portable app for drawing over the Windows screen, inserting images, and taking screenshots.** An extended alternative to Epic Pen and gInk — no installation required, fully open-source.
 
-💡 Идея создания пришла ко мне когда в аналогичных программах меня не устроила реализация функции вставки картинки поверх рабочего стола и я решил устранить этот и другие недостатки при создании своего приложения.  
+💡 *The project was born out of frustration with how existing tools handle image overlays on the desktop. I set out to fix that shortcoming — and a few others — from scratch.*
 
-🚀 Возможности  
-Рисование левой и правой кнопкой мыши разным цветом.  
-Инструменты: Ручка, Лазерная указка, Фигуры (Линия, Прямоугольник, Эллипс, Стрелка), Текст, Ластик.  
-Выбор цвета и размера пера, линий, текста и ластика.  
-Умный векторный ластик: левая кнопка стирает пиксели, а правая — удаляет линию или фигуру целиком одним кликом.  
-Вставка изображений из файла и из буфера обмена с возможностью перемещения, пропорционального и свободного растягивания, и изменение формы.  
-Удаление фона для вставленных изображений (из буфера обмена или из файла). Идеально для вставки графиков и скриншотов!  
-Функция «Убрать фон» рабатает в любой момент после вставки картинки. Возможность сохранить обратно на компьюьер.  
-📽️ Режим презентаций (Вставка папки):  
-Вставка папки (колесико мыши) позволяет перелистывать картинки прямо поверх рабочего стола, просто прокручивая колесико мыши (вверх — предыдущая, вниз — следующая)!  
-Вставка папки без фона: То же самое, но каждый файл при перелистывании будет автоматически очищаться от фона!  
-Управление слоями: перенос вставленных картинок на передний или задний план.   
-Лазерная указка: режим красной светящейся точки, который можно включить поверх любого инструмента для презентаций.  
-Инструмент Скриншот с захватом выделенной области вместе с рисунками.  
-Поддержка работы на нескольких мониторах.  
-Трехъязычный интерфейс (Русский / Английский / Китайский. Автоматическое сохранение языка при выходе.  
-Светлая и темная темы оформления.  
-Сворачивающаяся анимированная панель инструментов.  
-Сохранение скриншотов в буфер обмена и открытие в настроенной системой программе.  
-Приложение не требует установки. 
+---
 
-🖱️ Управление  
-Одновременное нажатие ЛКМ + ПКМ: мгновенно включает режим Курсора и отключает лазерную указку.  
-Левая и правая кнопка мыши: рисует разными цветами, когда выбран инструмент Ручка/Ластик/Фигуры.  
-Чтобы выбрать цвет на правой или левой кнопке мыши, нажмите соответствующей кнопкой на кнопку Цвет.  
-Для выбора размера пера, линий, текста и ластика нажмите правой кнопкой на соответствующие кнопки.  
-Для переноса вставленной картинки на передний/задний план или её удаления нажмите на неё правой кнопкой мыши в режиме Выбор.  
-Левый клик по кнопке "Скриншот" копирует выбранное изображение в буфер и открывает просмотр. Правый клик-клик, только копирует изображение в буфер.  
-Правый клик по кнопке "Картинка" для вставки картинок из буфера обмена, либо для вставки без фона, либо вставка из папки с возможностью скролла средней кнопкой мыши.
-Правый клик по кнопке "Курсор": включение лазерной указки.  
-Правый клик по кнопке "Скрыть/Показать текст": переключение между светлой и темной темой.  
-Правый клик по кнопке выбора языка: выбор нужного языка из меню.  
+## 🚀 Features
 
-💻💾 Скачать:
-PastePen.exe — Не требует установки. Просто запустите и пользуйтесь.
+### Drawing & Tools
+- Draw with the left and right mouse buttons in **different colors simultaneously**.
+- Tools: Pen, Laser Pointer, Shapes (Line, Rectangle, Ellipse, Arrow), Text, Eraser.
+- Flexible color and size selection for pen, shapes, text, and eraser.
+- **Smart vector eraser:** LMB erases pixels; RMB deletes an entire line or shape with a single click.
 
-⚠️ Внимание: Поскольку программа не имеет официальной цифровой подписи, Windows 11 может блокировать запуск, выдав предупреждение "Система Windows защитила ваш компьютер".  
-Программа абсолютно безопасна и имеет открытый исходный код.  
+### Image Handling
+- Insert from a file or the clipboard: move, scale proportionally or freely, reshape.
+- **Background removal** for inserted images — available at any time after insertion. Perfect for charts and screenshots. The result can be saved back to disk.
+- Layer management: bring images to the front or send them to the back.
 
-📜 Лицензия  
-Проект распространяется под лицензией MIT.  
+### 📽️ Presentation Mode (Insert Folder)
+- Pick a folder of images and flip through them with the mouse wheel right on your desktop (up → previous, down → next). The on-screen position is preserved between slides.
+- **Insert Folder without Background:** each file is automatically stripped of its background as you scroll.
+- Laser pointer (a red glowing dot) can be toggled on top of any active tool.
 
-/
+### Screenshots & System
+- Capture a selected region **together with your drawings**.
+- Save to the clipboard and open in the system's default image viewer.
+- Multi-monitor support.
+- Trilingual interface: Русский / English / 中文 (language preference is saved automatically).
+- Light and dark UI themes.
+- Collapsible animated toolbar.
 
-✏️ Paste Pen  
+---
 
-Paste Pen is a portable, user-friendly application for drawing over the Windows screen, inserting images, and taking screenshots. An excellent alternative to Epic Pen and gInk with extended functionality.
+## 🖱️ Controls
 
-💡 The idea came to me when I was dissatisfied with the implementation of the image overlay feature in similar programs, so I decided to eliminate this and other shortcomings by creating my own application.
+| Action | Result |
+|---|---|
+| **LMB + RMB simultaneously** | Instantly switch to Cursor mode; disable laser pointer |
+| LMB / RMB with a tool selected | Draw in the assigned color |
+| Click the "Color" button with the respective mouse button | Assign color to LMB or RMB |
+| RMB on a tool button (pen, eraser, etc.) | Choose size |
+| RMB on an image in Select mode | Layer forward/back, delete, remove background |
+| LMB on "Screenshot" | Copy to clipboard **+ open viewer** |
+| RMB on "Screenshot" | Copy to clipboard only |
+| RMB on "Image" | Menu: from clipboard / without background / from folder (with scroll) |
+| RMB on "Cursor" | Toggle laser pointer |
+| RMB on "Hide/Show text" | Switch light/dark theme |
+| RMB on the language button | Choose language from the menu |
 
-🚀 Features  
-Drawing with the left and right mouse buttons using different colors.  
-Tools: Pen, Laser Pointer, Shapes (Line, Rectangle, Ellipse, Arrow), Text, Eraser.  
-Color and size selection for the pen, lines, text, and eraser.  
-Smart vector eraser: the left button erases pixels, while the right button deletes the entire line or shape with a single click.  
-Inserting images from a file or the clipboard with the ability to move, proportionally and freely resize, and change their shape.  
-Background Removal for images from the clipboard or from file. Perfect for pasting charts and screenshots!  
-Remove Background" button in the image context menu (right-click in "Select" mode). You can now remove the background at any time after insertion and save as a new file on computer.   
-📽️ Presentation Mode (Insert Folder):  
-Select a folder with images, and the first file will appear on the screen. Scroll through images right over your desktop simply by spinning the mouse wheel (up for previous, down for next)! The image retains its screen position while scrolling.
-Insert Folder without Background: Same as above, but each file will automatically have its background removed!  
-Layer management: bringing inserted images to the front or sending them to the back.  
-Laser pointer: a red glowing dot mode that can be enabled on top of any tool for presentations.  
-Screenshot tool capturing the selected area along with your drawings.  
-Multi-monitor support.  
-Trilingual interface (Russian / English / Chinese). The language is automatically saved on exit.  
-Light and dark themes.  
-Collapsible animated toolbar.  
-Saving screenshots to the clipboard and opening them in the system's default image viewer.  
-No installation required.  
+---
 
-🖱️ Controls  
-Simultaneous LMB + RMB press: instantly switches to Cursor mode and disables the laser pointer.  
-Left and right mouse buttons: draw with different colors when the Pen/Eraser/Shapes tool is selected.  
-To select a color for the right or left mouse button, click the "Color" button with the respective mouse button.  
-To paste an image from the clipboard, right-click the "Image" button.  
-To choose the size of the pen, lines, text, or eraser, right-click the corresponding tool buttons.  
-To bring an inserted image to the front/back or delete it, right-click it in "Select" mode.  
-Left-click on the "Screenshot" button copies the selected image to the clipboard and opens the viewer. Right-click only copies the image to the clipboard.
-Right-click the "Image" button to paste images from the clipboard, insert them without a background, or insert a folder and scroll through the files using the mouse wheel.  
-Right-click the "Cursor" button: enable/disable the laser pointer.  
-Right-click the "Hide/Show text" button: switch between light and dark themes.  
-Right-click the language selection button: choose the desired language from the menu.  
+## 💻 Download
 
-💻 Download  
-Download the ready-to-use PastePen.exe file from the Releases page. Portable.  
+**PastePen.exe** — a single portable file. No installation needed: download and run.
 
-⚠️ Attention: Since the program does not have an official digital signature, Windows (SmartScreen or Windows Defender) may block the launch of the .exe file, displaying the warning "Windows protected your PC".
-The program is completely safe and open-source.  
+> ⚠️ The program is not digitally signed, so Windows 11 may display a *"Windows protected your PC"* SmartScreen warning. This is a false positive: the source code is fully open and safe.
 
-📜 License  
-This project is licensed under the MIT License.
+---
+
+## 📜 License
+
+MIT License — free to use for any purpose.
+
+---
+---
+
+
+# ✏️ Paste Pen
+
+**Портативная программа для рисования поверх экрана Windows, вставки изображений и создания скриншотов.** Расширенный аналог Epic Pen и gInk — без установки, с открытым исходным кодом.
+
+💡 *Проект родился из недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Я решил устранить этот и ряд других недостатков с нуля.*
+
+---
+
+## 🚀 Возможности
+
+### Рисование и инструменты
+- Рисование левой и правой кнопкой мыши **разным цветом одновременно**.
+- Инструменты: Ручка, Лазерная указка, Фигуры (линия, прямоугольник, эллипс, стрелка), Текст, Ластик.
+- Гибкий выбор цвета и размера для пера, фигур, текста и ластика.
+- **Умный векторный ластик:** ЛКМ стирает пиксели, ПКМ — удаляет линию или фигуру целиком одним кликом.
+
+### Работа с изображениями
+- Вставка из файла или буфера обмена: перемещение, пропорциональное и свободное масштабирование, изменение формы.
+- **Удаление фона** у вставленных изображений — в любой момент после вставки. Идеально для графиков и скриншотов. Результат можно сохранить обратно на компьютер.
+- Управление слоями: перенос картинок на передний или задний план.
+
+### 📽️ Режим презентаций (вставка папки)
+- Выберите папку с изображениями — и листайте их колёсиком мыши прямо поверх рабочего стола (вверх → предыдущее, вниз → следующее). Позиция картинки на экране сохраняется.
+- **Вставка папки без фона:** каждый файл при перелистывании автоматически очищается от фона.
+- Лазерная указка (красная светящаяся точка) включается поверх любого инструмента.
+
+### Скриншоты и система
+- Захват выделенной области **вместе с рисунками**.
+- Сохранение в буфер обмена и открытие в системном просмотрщике.
+- Поддержка нескольких мониторов.
+- Трёхъязычный интерфейс: Русский / English / 中文 (язык сохраняется автоматически).
+- Светлая и тёмная темы оформления.
+- Сворачивающаяся анимированная панель инструментов.
+
+---
+
+## 🖱️ Управление
+
+| Действие | Результат |
+|---|---|
+| **ЛКМ + ПКМ одновременно** | Мгновенный переход в режим «Курсор», отключение лазерной указки |
+| ЛКМ / ПКМ при выбранном инструменте | Рисование соответствующим цветом |
+| Клик по кнопке «Цвет» нужной кнопкой мыши | Назначить цвет на ЛКМ или ПКМ |
+| ПКМ по кнопке инструмента (перо, ластик и т. д.) | Выбор размера |
+| ПКМ по картинке в режиме «Выбор» | Слой вперёд/назад, удаление, убрать фон |
+| ЛКМ по «Скриншот» | Копировать в буфер **+ открыть просмотр** |
+| ПКМ по «Скриншот» | Только копировать в буфер |
+| ПКМ по «Картинка» | Меню: из буфера / без фона / из папки (со скроллом) |
+| ПКМ по «Курсор» | Вкл./выкл. лазерную указку |
+| ПКМ по «Скрыть/Показать текст» | Переключение светлой/тёмной темы |
+| ПКМ по кнопке языка | Выбор языка из меню |
+
+---
+
+## 💻 Скачать
+
+**PastePen.exe** — портативный файл. Не требует установки: скачайте и запустите.
+
+> ⚠️ Программа не имеет цифровой подписи, поэтому Windows 11 может показать предупреждение *«Система Windows защитила ваш компьютер»* (SmartScreen). Это ложное срабатывание: код полностью открыт и безопасен.
+
+---
+
+## 📜 Лицензия
+
+MIT License — свободное использование для любых целей.
