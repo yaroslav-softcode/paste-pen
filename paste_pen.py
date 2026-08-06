@@ -50,6 +50,11 @@ ICON_COLLAPSE = '<svg viewBox="0 0 24 24" fill="white"><path d="M19 2h-4.18C14.4
 ICON_RUBLE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v16"/><path d="M8 4h6a4 4 0 0 1 0 8H8"/><path d="M5 12h9"/><path d="M5 16h9"/></svg>'
 ICON_DOLLAR = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'
 ICON_YUAN = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 9 6-9"/><path d="M12 12v9"/><path d="M8 16h8"/><path d="M8 19h8"/></svg>'
+ICON_EURO = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5a7.5 7.5 0 1 0 0 14"/><path d="M4 10h9M4 14h9"/></svg>'
+ICON_RIAL = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M12 4v16M17 4v16M5 12h14"/></svg>'
+ICON_RUPEE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 8h12M9 3c4 0 6 1.5 6 5s-2 5-6 5l7 8"/></svg>'
+ICON_YEN = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 9 6-9M12 12v9M8 15h8M8 18h8"/></svg>'
+ICON_WON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4l3 16 3-12 3 12 3-16M3 10h18M3 14h18"/></svg>'
 ICON_LASER = '<svg viewBox="0 0 24 24" fill="#FF0000" stroke="white" stroke-width="1.5"><circle cx="12" cy="12" r="7" /></svg>'
 
 
@@ -1129,14 +1134,12 @@ class MainWindow(QMainWindow):
                 "cursor": "Курсор", "pen": "Ручка", "shape": "Фигуры", "text": "Текст",
                 "eraser": "Ластик", "color": "Цвет", "image": "Картинка", "select": "Выбор",
                 "screenshot": "Скриншот", "delete": "Удалить",
-                "rotate": "Поворот / Размер",
                 "front": "На передний план", "back": "На задний план",
                 "undo": "Назад", "hide": "Скрыть", "show": "Показать", "clear": "Очистить",
                 "exit": "Выход",
                 "width": "Толщина: {}", "size": "Размер: {}",
                 "line": "Линия", "rect": "Прямоугольник", "ellipse": "Эллипс", "arrow": "Стрелка",
-                "next_lang": "中", "donate_tip": "Поддержать на Boosty",
-                "current_lang": "РУ",
+                "next_lang": "中", "current_lang": "РУ", "donate_tip": "Поддержать на Boosty",
                 "cursor_tip": "Переключение на курсор: ЛКМ + ПКМ",
                 "color_tip": "ЛКМ: цвет левой кнопки\nПКМ: цвет правой кнопки",
                 "paste_img": "Вставить из буфера", "paste_chart_img": "Вставить из буфера без фона",
@@ -1145,28 +1148,26 @@ class MainWindow(QMainWindow):
                 "insert_folder_no_bg_wheel": "Вставить папку без фона (колесико мыши)",
                 "no_img_clip": "В буфере обмена нет изображения.",
                 "no_img_folder": "В выбранной папке нет изображений.",
-                "theme_light": "Светлая тема", "theme_dark": "Темная тема",
+                "theme_light": "Светлая тема", "theme_dark": "Тёмная тема",
                 "eraser_tip": "ЛКМ: стирание ластиком\nПКМ: удаление линии целиком",
                 "normal_cursor": "Обычный курсор", "laser_cursor": "Лазерная указка",
                 "laser_tip": "Курсор станет красной точкой.\n(Клики заблокированы до возврата на обычный курсор)",
-                "lang_ru": "Русский", "lang_en": "Английский", "lang_zh": "Китайский",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Сохранить как...", "remove_bg": "Убрать фон",
-                "font": "Шрифт",
-                "remove_clicked_color": "Удалить выбранный фон",
-                "screenshot_tip": "ЛКМ: копирование в буфер и открытие файла\nПКМ мыши: только копирование в буфер"
+                "font": "Шрифт", "remove_clicked_color": "Удалить выбранный фон",
+                "screenshot_tip": "ЛКМ: копирование в буфер и открытие файла\nПКМ: только копирование в буфер",
+                "rotate": "Повернуть / Размер"
             },
             "EN": {
                 "cursor": "Cursor", "pen": "Pen", "shape": "Shapes", "text": "Text",
                 "eraser": "Eraser", "color": "Color", "image": "Image", "select": "Select",
                 "screenshot": "Screenshot", "delete": "Delete",
-                "rotate": "Rotate / Resize",
                 "front": "Bring to Front", "back": "Send to Back",
                 "undo": "Undo", "hide": "Hide", "show": "Show", "clear": "Clear",
                 "exit": "Exit",
                 "width": "Width: {}", "size": "Size: {}",
                 "line": "Line", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Arrow",
-                "next_lang": "РУ", "donate_tip": "Support on DonationAlerts",
-                "current_lang": "EN",
+                "next_lang": "РУ", "current_lang": "EN", "donate_tip": "Support on DonationAlerts",
                 "cursor_tip": "Switch to cursor: LMB + RMB",
                 "color_tip": "LMB: left button color\nRMB: right button color",
                 "paste_img": "Paste from clipboard", "paste_chart_img": "Paste from clipboard without background",
@@ -1178,39 +1179,285 @@ class MainWindow(QMainWindow):
                 "eraser_tip": "LMB: erase pixels\nRMB: delete entire line",
                 "normal_cursor": "Normal Cursor", "laser_cursor": "Laser Pointer",
                 "laser_tip": "Cursor becomes a red dot.\n(Clicks are blocked until returning to normal cursor)",
-                "lang_ru": "Russian", "lang_en": "English", "lang_zh": "Chinese",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Save As...", "remove_bg": "Remove background",
-                "font": "Font",
-                "remove_clicked_color": "Remove selected background",
-                "screenshot_tip": "LMB: copy to clipboard and open file\nRMB: copy to clipboard only"
+                "font": "Font", "remove_clicked_color": "Remove selected background",
+                "screenshot_tip": "LMB: copy to clipboard and open file\nRMB: copy to clipboard only",
+                "rotate": "Rotate / Resize"
             },
             "ZH": {
                 "cursor": "光标", "pen": "画笔", "shape": "形状", "text": "文本",
                 "eraser": "橡皮擦", "color": "颜色", "image": "图片", "select": "选择",
                 "screenshot": "截图", "delete": "删除",
-                "rotate": "旋转 / 调整大小",
                 "front": "置于顶层", "back": "置于底层",
                 "undo": "撤销", "hide": "隐藏", "show": "显示", "clear": "清除",
                 "exit": "退出",
                 "width": "粗细: {}", "size": "大小: {}",
                 "line": "直线", "rect": "矩形", "ellipse": "椭圆", "arrow": "箭头",
-                "next_lang": "EN", "donate_tip": "在 DonationAlerts 上支持",
-                "current_lang": "中",
+                "next_lang": "ES", "current_lang": "中", "donate_tip": "在 DonationAlerts 上支持",
                 "cursor_tip": "切换到光标: 鼠标左键 + 右键",
                 "color_tip": "左键: 左键颜色\n右键: 右键颜色",
                 "paste_img": "从剪贴板粘贴", "paste_chart_img": "从剪贴板粘贴无背景",
                 "insert_img_from_file": "从文件插入", "paste_img_no_bg": "从文件插入无背景图片",
                 "insert_folder_wheel": "插入文件夹 (鼠标滚轮)",
-                "insert_folder_no_bg_wheel": "插入无背景文件夹 (鼠标滚轮)", "no_img_clip": "剪贴板中没有图像。",
-                "no_img_folder": "所选文件夹中没有图像。",
+                "insert_folder_no_bg_wheel": "插入无背景文件夹 (鼠标滚轮)",
+                "no_img_clip": "剪贴板中没有图像。", "no_img_folder": "所选文件夹中没有图像。",
                 "theme_light": "浅色主题", "theme_dark": "深色主题",
                 "eraser_tip": "左键: 擦除像素\n右键: 删除整条线",
                 "normal_cursor": "普通光标", "laser_cursor": "激光笔",
                 "laser_tip": "光标变为红点。\n（在返回普通光标前点击被阻止）",
-                "lang_ru": "俄语", "lang_en": "英语", "lang_zh": "中文",
-                "save_as": "另存为...", "remove_bg": "移除背景", "remove_clicked_color": "删除所选背景",
-                "font": "字体",
-                "screenshot_tip": "鼠标左键: 复制到剪贴板并打开文件\n鼠标右键: 仅复制到剪贴板"
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "另存为...", "remove_bg": "移除背景",
+                "font": "字体", "remove_clicked_color": "删除所选背景",
+                "screenshot_tip": "鼠标左键: 复制到剪贴板并打开文件\n鼠标右键: 仅复制到剪贴板",
+                "rotate": "旋转 / 调整大小"
+            },
+            "ES": {
+                "cursor": "Cursor", "pen": "Lápiz", "shape": "Formas", "text": "Texto",
+                "eraser": "Borrador", "color": "Color", "image": "Imagen", "select": "Seleccionar",
+                "screenshot": "Captura", "delete": "Eliminar",
+                "front": "Al frente", "back": "Al fondo",
+                "undo": "Deshacer", "hide": "Ocultar", "show": "Mostrar", "clear": "Limpiar",
+                "exit": "Salir",
+                "width": "Grosor: {}", "size": "Tamaño: {}",
+                "line": "Línea", "rect": "Rectángulo", "ellipse": "Elipse", "arrow": "Flecha",
+                "next_lang": "PT", "current_lang": "ES", "donate_tip": "Apoyar en DonationAlerts",
+                "cursor_tip": "Cambiar a cursor: clic izq + der",
+                "color_tip": "Clic izq: color botón izquierdo\nClic der: color botón derecho",
+                "paste_img": "Pegar del portapapeles", "paste_chart_img": "Pegar sin fondo",
+                "insert_img_from_file": "Insertar desde archivo", "paste_img_no_bg": "Insertar sin fondo",
+                "insert_folder_wheel": "Insertar carpeta (rueda del ratón)",
+                "insert_folder_no_bg_wheel": "Insertar carpeta sin fondo (rueda del ratón)",
+                "no_img_clip": "No hay imagen en el portapapeles.",
+                "no_img_folder": "No se encontraron imágenes en la carpeta.",
+                "theme_light": "Tema claro", "theme_dark": "Tema oscuro",
+                "eraser_tip": "Clic izq: borrar\nClic der: eliminar línea completa",
+                "normal_cursor": "Cursor normal", "laser_cursor": "Puntero láser",
+                "laser_tip": "El cursor se convierte en un punto rojo.\n(Los clics se bloquean hasta volver al cursor normal)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "Guardar como...", "remove_bg": "Quitar fondo",
+                "font": "Fuente", "remove_clicked_color": "Quitar color seleccionado",
+                "screenshot_tip": "Clic izq: copiar y abrir archivo\nClic der: solo copiar",
+                "rotate": "Rotar / Tamaño"
+            },
+            "PT": {
+                "cursor": "Cursor", "pen": "Caneta", "shape": "Formas", "text": "Texto",
+                "eraser": "Borracha", "color": "Cor", "image": "Imagem", "select": "Selecionar",
+                "screenshot": "Captura", "delete": "Excluir",
+                "front": "Para frente", "back": "Para trás",
+                "undo": "Desfazer", "hide": "Ocultar", "show": "Mostrar", "clear": "Limpar",
+                "exit": "Sair",
+                "width": "Espessura: {}", "size": "Tamanho: {}",
+                "line": "Linha", "rect": "Retângulo", "ellipse": "Elipse", "arrow": "Seta",
+                "next_lang": "FR", "current_lang": "PT", "donate_tip": "Apoiar no DonationAlerts",
+                "cursor_tip": "Mudar para cursor: clique esq + dir",
+                "color_tip": "Clique esq: cor do botão esquerdo\nClique dir: cor do botão direito",
+                "paste_img": "Colar da área de transferência", "paste_chart_img": "Colar sem fundo",
+                "insert_img_from_file": "Inserir do arquivo", "paste_img_no_bg": "Inserir sem fundo",
+                "insert_folder_wheel": "Inserir pasta (roda do mouse)",
+                "insert_folder_no_bg_wheel": "Inserir pasta sem fundo (roda do mouse)",
+                "no_img_clip": "Nenhuma imagem na área de transferência.",
+                "no_img_folder": "Nenhuma imagem encontrada na pasta.",
+                "theme_light": "Tema claro", "theme_dark": "Tema escuro",
+                "eraser_tip": "Clique esq: apagar\nClique dir: excluir linha inteira",
+                "normal_cursor": "Cursor normal", "laser_cursor": "Ponteiro laser",
+                "laser_tip": "O cursor vira um ponto vermelho.\n(Cliques bloqueados até voltar ao cursor normal)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "Salvar como...", "remove_bg": "Remover fundo",
+                "font": "Fonte", "remove_clicked_color": "Remover cor selecionada",
+                "screenshot_tip": "Clique esq: copiar e abrir arquivo\nClique dir: apenas copiar",
+                "rotate": "Girar / Tamanho"
+            },
+            "FR": {
+                "cursor": "Curseur", "pen": "Stylo", "shape": "Formes", "text": "Texte",
+                "eraser": "Gomme", "color": "Couleur", "image": "Image", "select": "Sélectionner",
+                "screenshot": "Capture", "delete": "Supprimer",
+                "front": "Premier plan", "back": "Arrière-plan",
+                "undo": "Annuler", "hide": "Masquer", "show": "Afficher", "clear": "Effacer",
+                "exit": "Quitter",
+                "width": "Épaisseur: {}", "size": "Taille: {}",
+                "line": "Ligne", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Flèche",
+                "next_lang": "DE", "current_lang": "FR", "donate_tip": "Soutenir sur DonationAlerts",
+                "cursor_tip": "Passer au curseur: clic gauche + droit",
+                "color_tip": "Clic gauche: couleur bouton gauche\nClic droit: couleur bouton droit",
+                "paste_img": "Coller depuis le presse-papiers", "paste_chart_img": "Coller sans arrière-plan",
+                "insert_img_from_file": "Insérer depuis un fichier", "paste_img_no_bg": "Insérer sans arrière-plan",
+                "insert_folder_wheel": "Insérer un dossier (molette)",
+                "insert_folder_no_bg_wheel": "Insérer un dossier sans arrière-plan (molette)",
+                "no_img_clip": "Aucune image dans le presse-papiers.",
+                "no_img_folder": "Aucune image trouvée dans le dossier.",
+                "theme_light": "Thème clair", "theme_dark": "Thème sombre",
+                "eraser_tip": "Clic gauche: effacer\nClic droit: supprimer la ligne entière",
+                "normal_cursor": "Curseur normal", "laser_cursor": "Pointeur laser",
+                "laser_tip": "Le curseur devient un point rouge.\n(Les clics sont bloqués jusqu'au retour au curseur normal)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "Enregistrer sous...", "remove_bg": "Supprimer l'arrière-plan",
+                "font": "Police", "remove_clicked_color": "Supprimer la couleur sélectionnée",
+                "screenshot_tip": "Clic gauche: copier et ouvrir\nClic droit: copier uniquement",
+                "rotate": "Pivoter / Taille"
+            },
+            "DE": {
+                "cursor": "Cursor", "pen": "Stift", "shape": "Formen", "text": "Text",
+                "eraser": "Radierer", "color": "Farbe", "image": "Bild", "select": "Auswählen",
+                "screenshot": "Screenshot", "delete": "Löschen",
+                "front": "In den Vordergrund", "back": "In den Hintergrund",
+                "undo": "Rückgängig", "hide": "Ausblenden", "show": "Anzeigen", "clear": "Leeren",
+                "exit": "Beenden",
+                "width": "Breite: {}", "size": "Größe: {}",
+                "line": "Linie", "rect": "Rechteck", "ellipse": "Ellipse", "arrow": "Pfeil",
+                "next_lang": "IT", "current_lang": "DE", "donate_tip": "Auf DonationAlerts unterstützen",
+                "cursor_tip": "Zum Cursor wechseln: LMT + RMT",
+                "color_tip": "LMT: Farbe der linken Taste\nRMT: Farbe der rechten Taste",
+                "paste_img": "Aus Zwischenablage einfügen", "paste_chart_img": "Ohne Hintergrund einfügen",
+                "insert_img_from_file": "Aus Datei einfügen", "paste_img_no_bg": "Ohne Hintergrund einfügen",
+                "insert_folder_wheel": "Ordner einfügen (Mausrad)",
+                "insert_folder_no_bg_wheel": "Ordner ohne Hintergrund einfügen (Mausrad)",
+                "no_img_clip": "Kein Bild in der Zwischenablage.", "no_img_folder": "Keine Bilder im Ordner gefunden.",
+                "theme_light": "Helles Design", "theme_dark": "Dunkles Design",
+                "eraser_tip": "LMT: Radieren\nRMT: Ganze Linie löschen",
+                "normal_cursor": "Normaler Cursor", "laser_cursor": "Laserpointer",
+                "laser_tip": "Der Cursor wird zu einem roten Punkt.\n(Klicks sind blockiert, bis zum normalen Cursor zurückgekehrt wird)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "Speichern unter...", "remove_bg": "Hintergrund entfernen",
+                "font": "Schriftart", "remove_clicked_color": "Ausgewählte Farbe entfernen",
+                "screenshot_tip": "LMT: Kopieren und Datei öffnen\nRMT: Nur kopieren",
+                "rotate": "Drehen / Größe"
+            },
+            "IT": {
+                "cursor": "Cursore", "pen": "Penna", "shape": "Forme", "text": "Testo",
+                "eraser": "Gomma", "color": "Colore", "image": "Immagine", "select": "Seleziona",
+                "screenshot": "Screenshot", "delete": "Elimina",
+                "front": "In primo piano", "back": "In secondo piano",
+                "undo": "Annulla", "hide": "Nascondi", "show": "Mostra", "clear": "Cancella",
+                "exit": "Esci",
+                "width": "Spessore: {}", "size": "Dimensione: {}",
+                "line": "Linea", "rect": "Rettangolo", "ellipse": "Ellisse", "arrow": "Freccia",
+                "next_lang": "عر", "current_lang": "IT", "donate_tip": "Supporta su DonationAlerts",
+                "cursor_tip": "Passa al cursore: clic sx + dx",
+                "color_tip": "Clic sx: colore pulsante sinistro\nClic dx: colore pulsante destro",
+                "paste_img": "Incolla dagli appunti", "paste_chart_img": "Incolla senza sfondo",
+                "insert_img_from_file": "Inserisci da file", "paste_img_no_bg": "Inserisci senza sfondo",
+                "insert_folder_wheel": "Inserisci cartella (rotella del mouse)",
+                "insert_folder_no_bg_wheel": "Inserisci cartella senza sfondo (rotella del mouse)",
+                "no_img_clip": "Nessuna immagine negli appunti.",
+                "no_img_folder": "Nessuna immagine trovata nella cartella.",
+                "theme_light": "Tema chiaro", "theme_dark": "Tema scuro",
+                "eraser_tip": "Clic sx: cancella\nClic dx: elimina intera linea",
+                "normal_cursor": "Cursore normale", "laser_cursor": "Puntatore laser",
+                "laser_tip": "Il cursore diventa un punto rosso.\n(I clic sono bloccati fino al ritorno al cursore normale)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "Salva come...", "remove_bg": "Rimuovi sfondo",
+                "font": "Carattere", "remove_clicked_color": "Rimuovi colore selezionato",
+                "screenshot_tip": "Clic sx: copia e apri file\nClic dx: solo copia",
+                "rotate": "Ruota / Dimensione"
+            },
+            "AR": {
+                "cursor": "المؤشر", "pen": "القلم", "shape": "الأشكال", "text": "النص",
+                "eraser": "الممحاة", "color": "اللون", "image": "الصورة", "select": "اختيار",
+                "screenshot": "لقطة شاشة", "delete": "حذف",
+                "front": "إلى الأمام", "back": "إلى الخلف",
+                "undo": "تراجع", "hide": "إخفاء", "show": "إظهار", "clear": "مسح",
+                "exit": "خروج",
+                "width": "السمك: {}", "size": "الحجم: {}",
+                "line": "خط", "rect": "مستطيل", "ellipse": "قطع ناقص", "arrow": "سهم",
+                "next_lang": "हिं", "current_lang": "عر", "donate_tip": "الدعم على DonationAlerts",
+                "cursor_tip": "التبديل إلى المؤشر: زر أيسر + أيمن",
+                "color_tip": "زر أيسر: لون الزر الأيسر\nزر أيمن: لون الزر الأيمن",
+                "paste_img": "لصق من الحافظة", "paste_chart_img": "لصق بدون خلفية",
+                "insert_img_from_file": "إدراج من ملف", "paste_img_no_bg": "إدراج بدون خلفية",
+                "insert_folder_wheel": "إدراج مجلد (عجلة الفأرة)",
+                "insert_folder_no_bg_wheel": "إدراج مجلد بدون خلفية (عجلة الفأرة)",
+                "no_img_clip": "لا توجد صورة في الحافظة.", "no_img_folder": "لم يتم العثور على صور في المجلد.",
+                "theme_light": "مظهر فاتح", "theme_dark": "مظهر داكن",
+                "eraser_tip": "زر أيسر: مسح\nزر أيمن: حذف الخط بالكامل",
+                "normal_cursor": "مؤشر عادي", "laser_cursor": "مؤشر ليزر",
+                "laser_tip": "يتحول المؤشر إلى نقطة حمراء.\n(النقرات محظورة حتى العودة للمؤشر العادي)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "حفظ باسم...", "remove_bg": "إزالة الخلفية",
+                "font": "الخط", "remove_clicked_color": "إزالة اللون المحدد",
+                "screenshot_tip": "زر أيسر: نسخ وفتح الملف\nزر أيمن: نسخ فقط",
+                "rotate": "تدوير / حجم"
+            },
+            "HI": {
+                "cursor": "कर्सर", "pen": "पेन", "shape": "आकार", "text": "पाठ",
+                "eraser": "इरेज़र", "color": "रंग", "image": "छवि", "select": "चयन",
+                "screenshot": "स्क्रीनशॉट", "delete": "हटाएं",
+                "front": "सामने लाएं", "back": "पीछे भेजें",
+                "undo": "पूर्ववत", "hide": "छिपाएं", "show": "दिखाएं", "clear": "साफ़ करें",
+                "exit": "बाहर निकलें",
+                "width": "मोटाई: {}", "size": "आकार: {}",
+                "line": "रेखा", "rect": "आयत", "ellipse": "दीर्घवृत्त", "arrow": "तीर",
+                "next_lang": "日", "current_lang": "हिं", "donate_tip": "DonationAlerts पर समर्थन करें",
+                "cursor_tip": "कर्सर पर स्विच: बायां + दायां क्लिक",
+                "color_tip": "बायां क्लिक: बाएं बटन का रंग\nदायां क्लिक: दाएं बटन का रंग",
+                "paste_img": "क्लिपबोर्ड से चिपकाएं", "paste_chart_img": "बिना पृष्ठभूमि चिपकाएं",
+                "insert_img_from_file": "फ़ाइल से डालें", "paste_img_no_bg": "बिना पृष्ठभूमि डालें",
+                "insert_folder_wheel": "फ़ोल्डर डालें (माउस व्हील)",
+                "insert_folder_no_bg_wheel": "बिना पृष्ठभूमि फ़ोल्डर डालें (माउस व्हील)",
+                "no_img_clip": "क्लिपबोर्ड में कोई छवि नहीं है।", "no_img_folder": "फ़ोल्डर में कोई छवि नहीं मिली।",
+                "theme_light": "हल्की थीम", "theme_dark": "गहरी थीम",
+                "eraser_tip": "बायां क्लिक: मिटाएं\nदायां क्लिक: पूरी रेखा हटाएं",
+                "normal_cursor": "सामान्य कर्सर", "laser_cursor": "लेज़र पॉइंटर",
+                "laser_tip": "कर्सर लाल बिंदु बन जाता है।\n(सामान्य कर्सर पर लौटने तक क्लिक अवरुद्ध हैं)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "इस रूप में सहेजें...", "remove_bg": "पृष्ठभूमि हटाएं",
+                "font": "फ़ॉन्ट", "remove_clicked_color": "चयनित रंग हटाएं",
+                "screenshot_tip": "बायां क्लिक: कॉपी और फ़ाइल खोलें\nदायां क्लिक: केवल कॉपी",
+                "rotate": "घुमाएं / आकार"
+            },
+            "JA": {
+                "cursor": "カーソル", "pen": "ペン", "shape": "図形", "text": "テキスト",
+                "eraser": "消しゴム", "color": "色", "image": "画像", "select": "選択",
+                "screenshot": "スクリーンショット", "delete": "削除",
+                "front": "前面へ", "back": "背面へ",
+                "undo": "元に戻す", "hide": "非表示", "show": "表示", "clear": "クリア",
+                "exit": "終了",
+                "width": "太さ: {}", "size": "サイズ: {}",
+                "line": "直線", "rect": "四角形", "ellipse": "楕円", "arrow": "矢印",
+                "next_lang": "한", "current_lang": "日", "donate_tip": "DonationAlertsで支援",
+                "cursor_tip": "カーソルに切替: 左クリック + 右クリック",
+                "color_tip": "左クリック: 左ボタンの色\n右クリック: 右ボタンの色",
+                "paste_img": "クリップボードから貼付", "paste_chart_img": "背景なしで貼付",
+                "insert_img_from_file": "ファイルから挿入", "paste_img_no_bg": "背景なしで挿入",
+                "insert_folder_wheel": "フォルダを挿入 (マウスホイール)",
+                "insert_folder_no_bg_wheel": "背景なしフォルダを挿入 (マウスホイール)",
+                "no_img_clip": "クリップボードに画像がありません。", "no_img_folder": "フォルダに画像が見つかりません。",
+                "theme_light": "ライトテーマ", "theme_dark": "ダークテーマ",
+                "eraser_tip": "左クリック: 消去\n右クリック: ライン全体を削除",
+                "normal_cursor": "通常カーソル", "laser_cursor": "レーザーポインター",
+                "laser_tip": "カーソルが赤い点になります。\n(通常カーソルに戻るまでクリックは無効)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "名前を付けて保存...", "remove_bg": "背景を削除",
+                "font": "フォント", "remove_clicked_color": "選択した色を削除",
+                "screenshot_tip": "左クリック: コピーしてファイルを開く\n右クリック: コピーのみ",
+                "rotate": "回転 / サイズ"
+            },
+            "KO": {
+                "cursor": "커서", "pen": "펜", "shape": "도형", "text": "텍스트",
+                "eraser": "지우개", "color": "색상", "image": "이미지", "select": "선택",
+                "screenshot": "스크린샷", "delete": "삭제",
+                "front": "맨 앞으로", "back": "맨 뒤로",
+                "undo": "실행 취소", "hide": "숨기기", "show": "표시", "clear": "지우기",
+                "exit": "종료",
+                "width": "두께: {}", "size": "크기: {}",
+                "line": "직선", "rect": "직사각형", "ellipse": "타원", "arrow": "화살표",
+                "next_lang": "EN", "current_lang": "한", "donate_tip": "DonationAlerts에서 후원",
+                "cursor_tip": "커서로 전환: 왼쪽 + 오른쪽 클릭",
+                "color_tip": "왼쪽 클릭: 왼쪽 버튼 색상\n오른쪽 클릭: 오른쪽 버튼 색상",
+                "paste_img": "클립보드에서 붙여넣기", "paste_chart_img": "배경 없이 붙여넣기",
+                "insert_img_from_file": "파일에서 삽입", "paste_img_no_bg": "배경 없이 삽입",
+                "insert_folder_wheel": "폴더 삽입 (마우스 휠)",
+                "insert_folder_no_bg_wheel": "배경 없이 폴더 삽입 (마우스 휠)",
+                "no_img_clip": "클립보드에 이미지가 없습니다.", "no_img_folder": "폴더에 이미지가 없습니다.",
+                "theme_light": "라이트 테마", "theme_dark": "다크 테마",
+                "eraser_tip": "왼쪽 클릭: 지우기\n오른쪽 클릭: 전체 선 삭제",
+                "normal_cursor": "일반 커서", "laser_cursor": "레이저 포인터",
+                "laser_tip": "커서가 빨간 점이 됩니다.\n(일반 커서로 돌아갈 때까지 클릭이 차단됩니다)",
+                "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
+                "save_as": "다른 이름으로 저장...", "remove_bg": "배경 제거",
+                "font": "글꼴", "remove_clicked_color": "선택한 색상 제거",
+                "screenshot_tip": "왼쪽 클릭: 복사 후 파일 열기\n오른쪽 클릭: 복사만",
+                "rotate": "회전 / 크기"
             }
         }
         tr = self.translations[self.lang]
@@ -1510,12 +1757,22 @@ class MainWindow(QMainWindow):
         if self.overlay.tool == "laser": self.btn_cursor.setIcon(get_svg_icon(ICON_LASER, self.icon_color))
         self.set_shape_type(self.overlay.shape_type)
         self.update_hide_button_state()
-        if self.lang == "EN":
+        if self.lang == "RU":
+            self.btn_donate.setIcon(get_svg_icon(ICON_RUBLE, self.icon_color))
+        elif self.lang == "EN":
             self.btn_donate.setIcon(get_svg_icon(ICON_DOLLAR, self.icon_color))
         elif self.lang == "ZH":
             self.btn_donate.setIcon(get_svg_icon(ICON_YUAN, self.icon_color))
-        else:
-            self.btn_donate.setIcon(get_svg_icon(ICON_RUBLE, self.icon_color))
+        elif self.lang in ("ES", "PT", "FR", "DE", "IT"):
+            self.btn_donate.setIcon(get_svg_icon(ICON_EURO, self.icon_color))
+        elif self.lang == "AR":
+            self.btn_donate.setIcon(get_svg_icon(ICON_RIAL, self.icon_color))
+        elif self.lang == "HI":
+            self.btn_donate.setIcon(get_svg_icon(ICON_RUPEE, self.icon_color))
+        elif self.lang == "JA":
+            self.btn_donate.setIcon(get_svg_icon(ICON_YEN, self.icon_color))
+        elif self.lang == "KO":
+            self.btn_donate.setIcon(get_svg_icon(ICON_WON, self.icon_color))
 
     def show_theme_menu(self, pos):
         menu = QMenu(self)
@@ -1536,17 +1793,24 @@ class MainWindow(QMainWindow):
     def show_language_menu(self, pos):
         menu = QMenu(self)
         menu.setStyleSheet(self.styleSheet())
-        # Названия всегда на родном языке, независимо от текущего
-        act_en = menu.addAction("English")
-        act_ru = menu.addAction("Русский")
-        act_zh = menu.addAction("中文")
+        actions = []
+        actions.append(("EN", menu.addAction("English")))
+        actions.append(("RU", menu.addAction("Русский")))
+        actions.append(("ZH", menu.addAction("中文")))
+        actions.append(("ES", menu.addAction("Español")))
+        actions.append(("PT", menu.addAction("Português")))
+        actions.append(("FR", menu.addAction("Français")))
+        actions.append(("DE", menu.addAction("Deutsch")))
+        actions.append(("IT", menu.addAction("Italiano")))
+        actions.append(("AR", menu.addAction("العربية")))
+        actions.append(("HI", menu.addAction("हिन्दी")))
+        actions.append(("JA", menu.addAction("日本語")))
+        actions.append(("KO", menu.addAction("한국어")))
         action = menu.exec_(self.btn_lang.mapToGlobal(pos))
-        if action == act_en:
-            self.set_language("EN")
-        elif action == act_ru:
-            self.set_language("RU")
-        elif action == act_zh:
-            self.set_language("ZH")
+        for lang_code, act in actions:
+            if action == act:
+                self.set_language(lang_code)
+                break
 
     def calculate_fixed_width(self):
         if self.icons_only:
@@ -1645,9 +1909,10 @@ class MainWindow(QMainWindow):
                 self.active_text_font_family = selected.text()
                 self.act_font.setText(f"{tr['font']}: {self.active_text_font_family}")
 
-                # Если мы меняем шрифт уже нарисованного текста
                 if item_to_change:
                     self.overlay.change_text_font(item_to_change, self.active_text_font_family)
+                else:
+                    self.overlay.set_tool("text")
 
     def set_text_font_family(self, family):
         self.active_text_font_family = family
@@ -1655,19 +1920,17 @@ class MainWindow(QMainWindow):
         self.act_font.setText(f"{tr['font']}: {family}")
         for act in self.font_menu.actions():
             act.setChecked(act.text() == family)
+
     def open_donate_link(self):
-        if self.lang in ("EN", "ZH"):
-            webbrowser.open("https://www.donationalerts.com/r/yaroslavkhmelev")
-        else:
+        if self.lang == "RU":
             webbrowser.open("https://boosty.to/yaroslavkhmelev/donate")
+        else:
+            webbrowser.open("https://www.donationalerts.com/r/yaroslavkhmelev")
 
     def toggle_language(self):
-        if self.lang == "EN":
-            self.lang = "RU"
-        elif self.lang == "RU":
-            self.lang = "ZH"
-        else:
-            self.lang = "EN"
+        order = ["EN", "RU", "ZH", "ES", "PT", "FR", "DE", "IT", "AR", "HI", "JA", "KO"]
+        idx = order.index(self.lang) if self.lang in order else 0
+        self.lang = order[(idx + 1) % len(order)]
         self.settings.setValue("language", self.lang)
         self.update_language()
 
@@ -1709,12 +1972,22 @@ class MainWindow(QMainWindow):
         self.btn_clear.setText("  " + tr["clear"])
         self.btn_exit.setText("  " + tr["exit"])
 
-        if self.lang == "EN":
+        if self.lang == "RU":
+            self.btn_donate.setIcon(get_svg_icon(ICON_RUBLE, self.icon_color))
+        elif self.lang == "EN":
             self.btn_donate.setIcon(get_svg_icon(ICON_DOLLAR, self.icon_color))
         elif self.lang == "ZH":
             self.btn_donate.setIcon(get_svg_icon(ICON_YUAN, self.icon_color))
-        else:
-            self.btn_donate.setIcon(get_svg_icon(ICON_RUBLE, self.icon_color))
+        elif self.lang in ("ES", "PT", "FR", "DE", "IT"):
+            self.btn_donate.setIcon(get_svg_icon(ICON_EURO, self.icon_color))
+        elif self.lang == "AR":
+            self.btn_donate.setIcon(get_svg_icon(ICON_RIAL, self.icon_color))
+        elif self.lang == "HI":
+            self.btn_donate.setIcon(get_svg_icon(ICON_RUPEE, self.icon_color))
+        elif self.lang == "JA":
+            self.btn_donate.setIcon(get_svg_icon(ICON_YEN, self.icon_color))
+        elif self.lang == "KO":
+            self.btn_donate.setIcon(get_svg_icon(ICON_WON, self.icon_color))
 
         for btn in [self.btn_pen, self.btn_shape, self.btn_text, self.btn_eraser]:
             for action in btn.actions(): btn.removeAction(action)
