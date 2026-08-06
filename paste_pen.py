@@ -1495,7 +1495,8 @@ class MainWindow(QMainWindow):
 
         self.app_title = QLabel("Paste Pen", self.toolbar_widget)
         self.app_title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        self.app_title.setFixedHeight(36)  # НОВОЕ: Фиксируем высоту надписи
+        self.app_title.setFixedHeight(36)
+        self.app_title.setToolTip("v.2.3")
         row1_layout.addWidget(self.app_title)
         top_v_layout.addLayout(row1_layout)
 
