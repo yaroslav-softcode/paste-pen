@@ -61,12 +61,13 @@ class OverlayWidget(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_NoSystemBackground)
 
+        self.tool = "cursor"
+        self.laser_mode = False
+
         screen = QApplication.primaryScreen()
         if screen:
             self.setGeometry(screen.virtualGeometry())
         self.show()
-
-        self.tool = "cursor"
         self.laser_mode = False
         self.left_color = QColor(255, 0, 0)
         self.right_color = QColor(0, 120, 215)
@@ -1377,6 +1378,9 @@ class MainWindow(QMainWindow):
         self.move(20, screen.height() // 2 - self.height() // 2)
 
         self.lock_size()
+
+        # Гарантируем режим курсора при первом запуске
+        self.set_normal_cursor()
 
     def remove_chart_background(self, pixmap, threshold=20):
         if pixmap.isNull(): return pixmap
