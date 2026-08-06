@@ -4,7 +4,7 @@
 
 **A portable app for drawing over the Windows screen, taking screenshots and inserting images with build in background removal.** An extended alternative to Epic Pen and gInk — no installation required, fully open-source.
 
-💡 *The idea for this app came from my dissatisfaction with how existing alternatives handle inserting images over the desktop. I decided to eliminate this shortcoming in my app and include all the features I personally needed. Most importantly, I wanted a feature to insert charts with the ability to stretch them, transform and remove the background.*
+💡 *The idea for this app came from my dissatisfaction with how existing alternatives handle inserting images over the desktop. I decided to eliminate this shortcoming in my own app and include all the features I personally needed. Especially, I wanted a feature for inserting charts with the ability to stretch them, transform and remove the background.*
 
 ---
 
@@ -14,6 +14,7 @@
 - Draw with the left and right mouse buttons in **different colors simultaneously**.
 - Tools: Pen, Laser Pointer, Shapes (Line, Rectangle, Ellipse, Arrow), Text, Eraser.
 - Flexible color and size selection for pen, shapes, text, and eraser.
+- Selecting a font for text, moving, rotating, and scaling.
 - **Smart vector eraser:** LMB erases pixels; RMB deletes an entire line or shape with a single click.
 
 ### Image Handling
@@ -45,6 +46,9 @@
 | LMB / RMB with a tool selected | Draw in the assigned color |
 | Click the "Color" button with the respective mouse button | Assign color to LMB or RMB |
 | RMB on a tool button (pen, eraser, etc.) | Choose size |
+| RMB on the “Text” button | Font and text size selection |
+| LMB on text in Select mode | Moving text |
+| RMB on text in Select mode | Deleting, rotating/scaling text |
 | RMB on an image in Select mode | Layer forward/back, delete, remove background |
 | LMB on "Screenshot" | Copy to clipboard **+ open viewer** |
 | RMB on "Screenshot" | Copy to clipboard only |
@@ -77,7 +81,7 @@ MIT License — free to use for any purpose.
 
 **Портативная программа для рисования поверх экрана Windows, создания скриншотов и вставки изображений cо встроенным удалением фона.** Расширенный аналог Epic Pen и gInk — без установки, с открытым исходным кодом.
 
-💡 *Идея создать собственное приложение возникла из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Я решил исправить это упущение и добавить всё, что мне нужно. Особенно необходима была функция вставки графиков с возможностью их растягивания, трансформации и удаления фона.*
+💡 *Идея создать собственное приложение возникла из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Я решил исправить это упущение и ещё добавить всё, что мне нужно. Особенно необходима была функция вставки графиков с возможностью их растягивания, трансформации и удаления фона.*
 
 ---
 
@@ -87,6 +91,7 @@ MIT License — free to use for any purpose.
 - Рисование левой и правой кнопкой мыши **разным цветом по выбору**.
 - Инструменты: Ручка, Лазерная указка, Фигуры (линия, прямоугольник, эллипс, стрелка), Текст, Ластик.
 - Гибкий выбор цвета и размера для пера, фигур, текста и ластика.
+- Выбор шрифта для текста, перемещение и поворот текста.
 - **Умный векторный ластик:** ЛКМ стирает пиксели, ПКМ — удаляет линию или фигуру целиком одним кликом.
 
 ### Работа с изображениями
@@ -118,6 +123,9 @@ MIT License — free to use for any purpose.
 | ЛКМ / ПКМ при выбранном инструменте | Рисование соответствующим цветом |
 | Клик по кнопке «Цвет» нужной кнопкой мыши | Назначить цвет на ЛКМ или ПКМ |
 | ПКМ по кнопке инструмента (перо, ластик, текст) | Выбор размера |
+| ПКМ по кнопке «Текст»| Выбор шрифта и размера текста |
+| ЛКМ по тексту в режиме Выбор | Перемещение текста |
+| ПКМ по тексту в режиме Выбор | Удаление, поворот/масштабирование текста  |
 | ПКМ по картинке в режиме «Выбор» | Удаление, Слой вперёд/назад, убрать фон, сохранить как |
 | ЛКМ по «Скриншот» | Копировать в буфер **+ открыть просмотр** |
 | ПКМ по «Скриншот» | Только копировать в буфер |

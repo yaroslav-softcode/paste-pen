@@ -1136,6 +1136,7 @@ class MainWindow(QMainWindow):
                 "width": "Толщина: {}", "size": "Размер: {}",
                 "line": "Линия", "rect": "Прямоугольник", "ellipse": "Эллипс", "arrow": "Стрелка",
                 "next_lang": "中", "donate_tip": "Поддержать на Boosty",
+                "current_lang": "РУ",
                 "cursor_tip": "Переключение на курсор: ЛКМ + ПКМ",
                 "color_tip": "ЛКМ: цвет левой кнопки\nПКМ: цвет правой кнопки",
                 "paste_img": "Вставить из буфера", "paste_chart_img": "Вставить из буфера без фона",
@@ -1165,6 +1166,7 @@ class MainWindow(QMainWindow):
                 "width": "Width: {}", "size": "Size: {}",
                 "line": "Line", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Arrow",
                 "next_lang": "РУ", "donate_tip": "Support on DonationAlerts",
+                "current_lang": "EN",
                 "cursor_tip": "Switch to cursor: LMB + RMB",
                 "color_tip": "LMB: left button color\nRMB: right button color",
                 "paste_img": "Paste from clipboard", "paste_chart_img": "Paste from clipboard without background",
@@ -1193,6 +1195,7 @@ class MainWindow(QMainWindow):
                 "width": "粗细: {}", "size": "大小: {}",
                 "line": "直线", "rect": "矩形", "ellipse": "椭圆", "arrow": "箭头",
                 "next_lang": "EN", "donate_tip": "在 DonationAlerts 上支持",
+                "current_lang": "中",
                 "cursor_tip": "切换到光标: 鼠标左键 + 右键",
                 "color_tip": "左键: 左键颜色\n右键: 右键颜色",
                 "paste_img": "从剪贴板粘贴", "paste_chart_img": "从剪贴板粘贴无背景",
@@ -1266,7 +1269,7 @@ class MainWindow(QMainWindow):
 
         self.btn_lang = QToolButton(self.toolbar_widget)
         self.btn_lang.setObjectName("LangButton")
-        self.btn_lang.setText(tr["next_lang"])
+        self.btn_lang.setText(tr["current_lang"])
         self.btn_lang.setToolButtonStyle(Qt.ToolButtonTextOnly)
         self.btn_lang.clicked.connect(self.toggle_language)
         self.btn_lang.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1533,10 +1536,10 @@ class MainWindow(QMainWindow):
     def show_language_menu(self, pos):
         menu = QMenu(self)
         menu.setStyleSheet(self.styleSheet())
-        tr = self.translations[self.lang]
-        act_en = menu.addAction(tr["lang_en"])
-        act_ru = menu.addAction(tr["lang_ru"])
-        act_zh = menu.addAction(tr["lang_zh"])
+        # Названия всегда на родном языке, независимо от текущего
+        act_en = menu.addAction("English")
+        act_ru = menu.addAction("Русский")
+        act_zh = menu.addAction("中文")
         action = menu.exec_(self.btn_lang.mapToGlobal(pos))
         if action == act_en:
             self.set_language("EN")
@@ -1702,7 +1705,7 @@ class MainWindow(QMainWindow):
 
         self.update_hide_button_state()
         self.btn_donate.setToolTip(tr["donate_tip"])
-        self.btn_lang.setText(tr["next_lang"])
+        self.btn_lang.setText(tr["current_lang"])
         self.btn_clear.setText("  " + tr["clear"])
         self.btn_exit.setText("  " + tr["exit"])
 
