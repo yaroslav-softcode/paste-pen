@@ -51,7 +51,7 @@ ICON_RUBLE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="
 ICON_DOLLAR = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'
 ICON_YUAN = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 9 6-9"/><path d="M12 12v9"/><path d="M8 16h8"/><path d="M8 19h8"/></svg>'
 ICON_EURO = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5a7.5 7.5 0 1 0 0 14"/><path d="M4 10h9M4 14h9"/></svg>'
-ICON_RIAL = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M12 4v16M17 4v16M5 12h14"/></svg>'
+ICON_RIAL = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v12c0 2 1.5 3 3.5 3h9M6 9h12M10 4v5"/></svg>'
 ICON_RUPEE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 8h12M9 3c4 0 6 1.5 6 5s-2 5-6 5l7 8"/></svg>'
 ICON_YEN = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 9 6-9M12 12v9M8 15h8M8 18h8"/></svg>'
 ICON_WON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4l3 16 3-12 3 12 3-16M3 10h18M3 14h18"/></svg>'
