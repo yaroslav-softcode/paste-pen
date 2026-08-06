@@ -9,9 +9,9 @@ import numpy as np
 from ctypes import wintypes
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolBar, QAction, QLabel,
                              QFileDialog, QColorDialog, QMainWindow, QToolButton, QMenu, QLineEdit, QFrame, QVBoxLayout,
-                             QHBoxLayout, QSizePolicy, QMessageBox, QSystemTrayIcon)
-from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QCursor, QPolygonF, QFont, QFontMetrics, QIcon, QTransform, \
-    QPainterPath, QPainterPathStroker, QImage, QDesktopServices
+                             QHBoxLayout, QSizePolicy, QMessageBox, QSystemTrayIcon,
+                             QDialog, QListWidget, QDialogButtonBox)
+from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QCursor, QPolygonF, QFont, QFontMetrics, QIcon, QTransform, QPainterPath, QPainterPathStroker, QImage, QDesktopServices, QFontDatabase
 from PyQt5.QtCore import Qt, QPoint, QRect, QRectF, QSize, QPointF, QPropertyAnimation, QEasingCurve, QSettings, QUrl, QEvent
 
 
@@ -98,7 +98,9 @@ class OverlayWidget(QWidget):
         self.resize_start_pos = QPoint(0, 0)
         self.resize_start_points = []
         self.resize_button = Qt.NoButton
-
+        self.moving_text = None
+        self.transforming_text = None
+        self.text_transform_start = {}
         self.shape_start_pos = None
         self.shape_end_pos = None
         self.screenshot_start_pos = None
@@ -127,14 +129,15 @@ class OverlayWidget(QWidget):
             if 'pixmap' in nd: nd['pixmap'] = nd['pixmap'].copy()
             if 'points' in nd: nd['points'] = [QPointF(p) for p in nd['points']]
             drawings_copy.append(nd)
-        self.undo_stack.append({'canvas': self.canvas.copy(), 'drawings': drawings_copy})
+        # БОЛЬШЕ НЕ сохраняем canvas — только drawings
+        self.undo_stack.append({'drawings': drawings_copy})
 
     def undo(self):
         self.commit_text()
         if self.undo_stack:
             state = self.undo_stack.pop()
-            self.canvas = state['canvas']
             self.drawings = state['drawings']
+            self.rebuild_canvas()  # Перестраиваем canvas из drawings
             self.deselect_all_images()
             self.active_folder_item = None
             self.update()
@@ -229,10 +232,37 @@ class OverlayWidget(QWidget):
         for item in self.drawings:
             if item['type'] == 'image':
                 item['selected'] = False
+            elif item['type'] == 'text':
+                item['show_handles'] = False
         self.update()
 
     def get_handle_rect(self, pt):
         return QRectF(pt.x() - 5, pt.y() - 5, 10, 10)
+
+    def get_text_corners(self, item):
+        font_family = item.get('font_family', 'Arial')
+        font = QFont(font_family)
+        font.setPixelSize(item['font_size'])
+        font.setBold(True)
+        fm = QFontMetrics(font)
+        rect = fm.boundingRect(item['text'])
+
+        w = rect.width() / 2.0
+        h = rect.height() / 2.0
+
+        # Локальные углы: TL, TR, BR, BL
+        local_points = [
+            QPointF(-w, -h),
+            QPointF(w, -h),
+            QPointF(w, h),
+            QPointF(-w, h)
+        ]
+
+        transform = QTransform()
+        transform.translate(item['pos'].x(), item['pos'].y())
+        transform.rotate(item.get('rotation', 0))
+
+        return [transform.map(p) for p in local_points]
 
     def draw_image_item(self, painter, item):
         try:
@@ -324,13 +354,26 @@ class OverlayWidget(QWidget):
             painter.drawPath(item['path'])
             painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
         elif item['type'] == 'text':
-            font = QFont("Arial")
+            font_family = item.get('font_family', 'Arial')
+            font = QFont(font_family)
             font.setPixelSize(item['font_size'])
             font.setBold(True)
             painter.setFont(font)
             painter.setPen(item['color'])
             painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            painter.drawText(item['pos'], item['text'])
+
+            fm = QFontMetrics(font)
+            rect = fm.boundingRect(item['text'])
+
+            painter.save()
+            # Перемещаемся в центр текста и вращаем
+            painter.translate(item['pos'])
+            painter.rotate(item.get('rotation', 0))
+
+            # Рисуем текст относительно центра
+            draw_rect = QRectF(-rect.width() / 2.0, -rect.height() / 2.0, rect.width(), rect.height())
+            painter.drawText(draw_rect, Qt.AlignCenter, item['text'])
+            painter.restore()
 
     def rebuild_canvas(self):
         self.canvas.fill(Qt.transparent)
@@ -350,56 +393,114 @@ class OverlayWidget(QWidget):
             if hit_path.contains(pos): return True
             if item['path'].contains(pos): return True
         elif item['type'] == 'text':
-            font = QFont("Arial")
+            font_family = item.get('font_family', 'Arial')
+            font = QFont(font_family)
             font.setPixelSize(item['font_size'])
             font.setBold(True)
             fm = QFontMetrics(font)
             rect = fm.boundingRect(item['text'])
-            text_top = item['pos'].y() + 2
-            text_rect = QRect(item['pos'].x(), text_top, rect.width(), rect.height())
-            if text_rect.contains(pos): return True
+            center = item['pos']
+            rotation = item.get('rotation', 0)
+            dx = pos.x() - center.x()
+            dy = pos.y() - center.y()
+            angle = math.radians(-rotation)
+            local_x = dx * math.cos(angle) - dy * math.sin(angle)
+            local_y = dx * math.sin(angle) + dy * math.cos(angle)
+            local_rect = QRectF(-rect.width() / 2.0, -rect.height() / 2.0, rect.width(), rect.height())
+            if local_rect.contains(local_x, local_y): return True
+        elif item['type'] == 'image':
+            if len(item.get('points', [])) >= 4:
+                poly = QPolygonF(item['points'])
+                if poly.containsPoint(pos, Qt.OddEvenFill):
+                    return True
         return False
+
+    def show_text_font_menu(self, item, pos):
+        menu = QMenu(self)
+        menu.setStyleSheet(self.main_window.styleSheet())
+        tr = self.main_window.translations[self.main_window.lang]
+
+        font_submenu = menu.addMenu(tr["font"])
+        current_font = item.get('font_family', 'Arial')
+
+        db = QFontDatabase()
+        for family in db.families():
+            act = QAction(family, font_submenu)
+            act.setCheckable(True)
+            act.setChecked(family == current_font)
+            act.triggered.connect(lambda checked, f=family, it=item: self.change_text_font(it, f))
+            font_submenu.addAction(act)
+
+        menu.exec_(self.mapToGlobal(pos))
+
+    def change_text_font(self, item, font_family):
+        self.save_state()
+        item['font_family'] = font_family
+        self.rebuild_canvas()
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
+        # Фон-подложка (для click-through), но НЕ при захвате скриншота
         if (self.tool != "cursor" or self.laser_mode) and not self.is_capturing:
             painter.fillRect(self.rect(), QColor(0, 0, 0, 1))
 
         if not self.is_hidden:
+            # Картинки на заднем плане
             for item in self.drawings:
                 if item['type'] == 'image' and item.get('layer', 'front') == 'back':
                     self.draw_image_item(painter, item)
 
+            # Canvas (ручка, фигуры, ластик)
             painter.drawPixmap(0, 0, self.canvas)
 
+            # Текущий рисуемый элемент
             if self.current_item:
                 self.draw_item_on_painter(painter, self.current_item)
 
+            # Картинки на переднем плане
             for item in self.drawings:
                 if item['type'] == 'image' and item.get('layer', 'front') == 'front':
                     self.draw_image_item(painter, item)
 
-            for item in self.drawings:
-                if item['type'] == 'image' and item.get('selected', False):
-                    pts = item['points']
-                    if len(pts) >= 4:
-                        poly_pts = [pts[0], pts[1], pts[2], pts[3], pts[0]]
-                        painter.setPen(QPen(QColor(0, 120, 215), 2, Qt.DashLine))
-                        painter.drawPolyline(QPolygonF(poly_pts))
-                        for i, corner in enumerate(['TL', 'TR', 'BR', 'BL']):
-                            handle = self.get_handle_rect(item['points'][i])
-                            if corner == 'TR':
-                                painter.setBrush(QColor(255, 165, 0))
-                                painter.setPen(QPen(Qt.white, 1))
+            # Маркеры выделения картинок — НЕ рисуем в режиме скриншота
+            if self.tool != "screenshot":
+                for item in self.drawings:
+                    if item['type'] == 'image' and item.get('selected', False):
+                        pts = item['points']
+                        if len(pts) >= 4:
+                            poly_pts = [pts[0], pts[1], pts[2], pts[3], pts[0]]
+                            painter.setPen(QPen(QColor(0, 120, 215), 2, Qt.DashLine))
+                            painter.drawPolyline(QPolygonF(poly_pts))
+                            for i, corner in enumerate(['TL', 'TR', 'BR', 'BL']):
+                                handle = self.get_handle_rect(item['points'][i])
+                                if corner == 'TR':
+                                    painter.setBrush(QColor(255, 165, 0))
+                                    painter.setPen(QPen(Qt.white, 1))
+                                    painter.drawRect(handle)
+                                else:
+                                    painter.setBrush(QColor(0, 120, 215))
+                                    painter.setPen(Qt.NoPen)
                                 painter.drawRect(handle)
-                            else:
+
+                # Маркеры текста — тоже не рисуем в режиме скриншота
+                for item in self.drawings:
+                    if item['type'] == 'text' and item.get('show_handles', False):
+                        corners = self.get_text_corners(item)
+                        if len(corners) == 4:
+                            painter.setPen(QPen(QColor(0, 120, 215), 2, Qt.DashLine))
+                            painter.setBrush(Qt.NoBrush)
+                            painter.drawPolygon(QPolygonF(corners))
+                            for i, pt in enumerate(corners):
+                                handle = self.get_handle_rect(pt)
                                 painter.setBrush(QColor(0, 120, 215))
                                 painter.setPen(Qt.NoPen)
                                 painter.drawRect(handle)
 
+        # Маска скриншота (только при выборе области, НЕ при захвате)
         if self.tool == "screenshot" and self.screenshot_start_pos is not None and not self.is_capturing:
             rect = QRect(self.screenshot_start_pos, self.screenshot_end_pos).normalized()
             mask_color = QColor(0, 0, 0, 150)
@@ -420,6 +521,8 @@ class OverlayWidget(QWidget):
             self.current_item = None
             self.moving_image = None
             self.resizing_image = None
+            self.moving_text = None
+            self.transforming_text = None
             self.screenshot_start_pos = None
             return
 
@@ -430,7 +533,9 @@ class OverlayWidget(QWidget):
 
         if self.is_hidden and self.tool != "screenshot": return
 
+        # ==================== РУЧКА И ЛАСТИК ====================
         if self.tool in ("pen", "eraser"):
+            # ПКМ ластик — удаляет объект целиком (линию, фигуру, картинку, текст)
             if self.tool == "eraser" and event.button() == Qt.RightButton:
                 for item in reversed(self.drawings):
                     if self.hit_test_item(item, event.pos()):
@@ -443,6 +548,7 @@ class OverlayWidget(QWidget):
 
             self.save_state()
             self.deselect_all_images()
+
             path = QPainterPath()
             path.moveTo(event.pos())
             item_type = self.tool
@@ -454,6 +560,7 @@ class OverlayWidget(QWidget):
             p.end()
             self.update()
 
+        # ==================== ФИГУРЫ ====================
         elif self.tool == "shape":
             self.save_state()
             self.deselect_all_images()
@@ -464,11 +571,13 @@ class OverlayWidget(QWidget):
                                  'width': self.pen_width, 'path': path}
             self.update()
 
+        # ==================== СКРИНШОТ ====================
         elif self.tool == "screenshot":
             self.screenshot_start_pos = event.pos()
             self.screenshot_end_pos = event.pos()
             self.update()
 
+        # ==================== ТЕКСТ (ВВОД) ====================
         elif self.tool == "text":
             if event.button() in (Qt.LeftButton, Qt.RightButton):
                 self.commit_text()
@@ -477,13 +586,63 @@ class OverlayWidget(QWidget):
                 self.text_color = self.current_color
                 self.text_input = QLineEdit(self)
                 self.text_input.setStyleSheet(
-                    f"QLineEdit {{ background: rgba(255, 255, 255, 180); border: 1px dashed gray; color: {self.text_color.name()}; font-size: {self.text_font_size}px; font-family: Arial; padding: 2px; }}")
-                self.text_input.move(event.pos())
+                    f"QLineEdit {{ background: rgba(255, 255, 255, 180); border: 1px dashed gray; color: {self.text_color.name()}; font-size: {self.text_font_size}px; font-family: '{self.main_window.active_text_font_family}'; padding: 2px; }}")
+                self.text_input.adjustSize()
+                h = self.text_input.height()
+                self.text_input.move(event.pos().x(), event.pos().y() - h // 2)
                 self.text_input.show()
                 self.text_input.setFocus()
                 self.text_input.editingFinished.connect(self.commit_text)
 
+        # ==================== ВЫБОР (SELECT) ====================
         elif self.tool == "select":
+            # 1. Клик по маркерам текста (поворот/размер)
+            for item in reversed(self.drawings):
+                if item['type'] == 'text' and item.get('show_handles', False):
+                    corners = self.get_text_corners(item)
+                    for i, pt in enumerate(corners):
+                        if self.get_handle_rect(pt).contains(event.pos()):
+                            self.save_state()
+                            self.transforming_text = item
+                            self.text_transform_start = {
+                                'mouse': event.pos(),
+                                'rotation': item.get('rotation', 0),
+                                'font_size': item['font_size']
+                            }
+                            return
+
+            # 2. Клик по тексту (перемещение / меню ПКМ)
+            for item in reversed(self.drawings):
+                if item['type'] == 'text':
+                    if self.hit_test_item(item, event.pos()):
+                        if event.button() == Qt.RightButton:
+                            menu = QMenu(self)
+                            menu.setStyleSheet(self.main_window.styleSheet())
+                            tr = self.main_window.translations[self.main_window.lang]
+                            delete_action = menu.addAction(tr["delete"])
+                            rotate_action = menu.addAction(tr["rotate"])
+                            action = menu.exec_(self.mapToGlobal(event.pos()))
+                            if action == delete_action:
+                                self.save_state()
+                                self.drawings.remove(item)
+                                self.rebuild_canvas()
+                                self.update()
+                            elif action == rotate_action:
+                                self.deselect_all_images()
+                                item['show_handles'] = True
+                                self.update()
+                            return
+                        elif event.button() == Qt.LeftButton:
+                            self.save_state()
+                            for other in self.drawings:
+                                if other != item and other['type'] == 'text':
+                                    other['show_handles'] = False
+                            self.moving_text = item
+                            self.move_offset = event.pos() - item['pos']
+                            self.update()
+                            return
+
+            # 3. Клик по маркерам картинок (изменение размера)
             if event.button() in (Qt.LeftButton, Qt.RightButton):
                 for item in reversed(self.drawings):
                     if item['type'] == 'image' and item.get('selected', False):
@@ -497,6 +656,7 @@ class OverlayWidget(QWidget):
                                 self.resize_button = event.button()
                                 return
 
+            # 4. Клик по картинкам (перемещение / меню ПКМ)
             for item in reversed(self.drawings):
                 if item['type'] == 'image' and len(item['points']) >= 4:
                     poly = QPolygonF(item['points'])
@@ -568,6 +728,8 @@ class OverlayWidget(QWidget):
                             elif action == save_as_action:
                                 self.main_window.save_image_as(item['pixmap'])
                             return
+
+            # 5. Клик по пустому месту
             if event.button() == Qt.LeftButton:
                 if self.active_folder_item:
                     self.active_folder_item = None
@@ -586,13 +748,28 @@ class OverlayWidget(QWidget):
         if text:
             self.save_state()
             pos = self.text_input.pos()
-            item = {'type': 'text', 'color': self.text_color, 'font_size': self.text_font_size, 'pos': pos,
-                    'text': text}
+
+            # Вычисляем центр текста для корректного вращения
+            font = QFont(self.main_window.active_text_font_family)
+            font.setPixelSize(self.text_font_size)
+            font.setBold(True)
+            fm = QFontMetrics(font)
+            rect = fm.boundingRect(text)
+            center = QPointF(pos.x() + rect.width() / 2.0, pos.y() + rect.height() / 2.0)
+
+            item = {
+                'type': 'text',
+                'color': self.text_color,
+                'font_size': self.text_font_size,
+                'pos': center,
+                'text': text,
+                'font_family': self.main_window.active_text_font_family,
+                'rotation': 0,
+                'show_handles': False
+            }
+
             self.drawings.append(item)
-            p = QPainter(self.canvas)
-            p.setRenderHint(QPainter.Antialiasing)
-            self.draw_item_on_painter(p, item)
-            p.end()
+            self.rebuild_canvas()
             self.update()
         self.text_input.deleteLater()
         self.text_input = None
@@ -604,6 +781,8 @@ class OverlayWidget(QWidget):
             self.current_item = None
             self.moving_image = None
             self.resizing_image = None
+            self.moving_text = None
+            self.transforming_text = None
             self.screenshot_start_pos = None
             return
 
@@ -629,12 +808,51 @@ class OverlayWidget(QWidget):
         elif self.screenshot_start_pos is not None:
             self.screenshot_end_pos = event.pos()
             self.update()
+
+        # НОВОЕ: ОБРАБОТКА ПОВОРОТА И РАЗМЕРА ТЕКСТА
+        elif self.transforming_text:
+            if not (event.buttons() & Qt.LeftButton): return
+            item = self.transforming_text
+            center = item['pos']
+            start_mouse = self.text_transform_start['mouse']
+
+            start_vec = start_mouse - center
+            curr_vec = event.pos() - center
+
+            start_dist = math.hypot(start_vec.x(), start_vec.y())
+            curr_dist = math.hypot(curr_vec.x(), curr_vec.y())
+
+            if start_dist < 1.0: return
+
+            start_angle = math.degrees(math.atan2(start_vec.y(), start_vec.x()))
+            curr_angle = math.degrees(math.atan2(curr_vec.y(), curr_vec.x()))
+
+            # Поворот
+            delta_angle = curr_angle - start_angle
+            item['rotation'] = self.text_transform_start['rotation'] + delta_angle
+
+            # Масштабирование (изменение размера шрифта)
+            scale = curr_dist / start_dist
+            new_size = int(self.text_transform_start['font_size'] * scale)
+            item['font_size'] = max(4, new_size)
+
+            self.rebuild_canvas()
+            self.update()
+
+        elif self.moving_text:
+            if not (event.buttons() & Qt.LeftButton): return
+            new_pos = event.pos() - self.move_offset
+            self.moving_text['pos'] = new_pos
+            self.rebuild_canvas()
+            self.update()
+
         elif self.moving_image:
             if not (event.buttons() & Qt.LeftButton): return
             new_tl = event.pos() - self.move_offset
             shift = new_tl - self.moving_image['points'][0]
             self.moving_image['points'] = [p + shift for p in self.moving_image['points']]
             self.update()
+
         elif self.resizing_image:
             if not (event.buttons() & (Qt.LeftButton | Qt.RightButton)): return
             delta = event.pos() - self.resize_start_pos
@@ -644,7 +862,7 @@ class OverlayWidget(QWidget):
             tl, tr, br, bl = pts[0], pts[1], pts[2], pts[3]
             try:
                 if self.resize_button == Qt.LeftButton and self.resizing_handle == 'TR':
-                    vx = tr.x() - tl.x();
+                    vx = tr.x() - tl.x()
                     vy = tr.y() - tl.y()
                     start_w = math.hypot(vx, vy)
                     if start_w == 0: start_w = 1.0
@@ -743,6 +961,8 @@ class OverlayWidget(QWidget):
 
         self.moving_image = None
         self.resizing_image = None
+        self.moving_text = None
+        self.transforming_text = None
 
     def wheelEvent(self, event):
         if self.active_folder_item and self.tool == "select":
@@ -908,6 +1128,7 @@ class MainWindow(QMainWindow):
                 "cursor": "Курсор", "pen": "Ручка", "shape": "Фигуры", "text": "Текст",
                 "eraser": "Ластик", "color": "Цвет", "image": "Картинка", "select": "Выбор",
                 "screenshot": "Скриншот", "delete": "Удалить",
+                "rotate": "Поворот / Размер",
                 "front": "На передний план", "back": "На задний план",
                 "undo": "Назад", "hide": "Скрыть", "show": "Показать", "clear": "Очистить",
                 "exit": "Выход",
@@ -928,6 +1149,7 @@ class MainWindow(QMainWindow):
                 "laser_tip": "Курсор станет красной точкой.\n(Клики заблокированы до возврата на обычный курсор)",
                 "lang_ru": "Русский", "lang_en": "Английский", "lang_zh": "Китайский",
                 "save_as": "Сохранить как...", "remove_bg": "Убрать фон",
+                "font": "Шрифт",
                 "remove_clicked_color": "Удалить выбранный фон",
                 "screenshot_tip": "ЛКМ: копирование в буфер и открытие файла\nПКМ мыши: только копирование в буфер"
             },
@@ -935,6 +1157,7 @@ class MainWindow(QMainWindow):
                 "cursor": "Cursor", "pen": "Pen", "shape": "Shapes", "text": "Text",
                 "eraser": "Eraser", "color": "Color", "image": "Image", "select": "Select",
                 "screenshot": "Screenshot", "delete": "Delete",
+                "rotate": "Rotate / Resize",
                 "front": "Bring to Front", "back": "Send to Back",
                 "undo": "Undo", "hide": "Hide", "show": "Show", "clear": "Clear",
                 "exit": "Exit",
@@ -954,6 +1177,7 @@ class MainWindow(QMainWindow):
                 "laser_tip": "Cursor becomes a red dot.\n(Clicks are blocked until returning to normal cursor)",
                 "lang_ru": "Russian", "lang_en": "English", "lang_zh": "Chinese",
                 "save_as": "Save As...", "remove_bg": "Remove background",
+                "font": "Font",
                 "remove_clicked_color": "Remove selected background",
                 "screenshot_tip": "LMB: copy to clipboard and open file\nRMB: copy to clipboard only"
             },
@@ -961,6 +1185,7 @@ class MainWindow(QMainWindow):
                 "cursor": "光标", "pen": "画笔", "shape": "形状", "text": "文本",
                 "eraser": "橡皮擦", "color": "颜色", "image": "图片", "select": "选择",
                 "screenshot": "截图", "delete": "删除",
+                "rotate": "旋转 / 调整大小",
                 "front": "置于顶层", "back": "置于底层",
                 "undo": "撤销", "hide": "隐藏", "show": "显示", "clear": "清除",
                 "exit": "退出",
@@ -980,6 +1205,7 @@ class MainWindow(QMainWindow):
                 "laser_tip": "光标变为红点。\n（在返回普通光标前点击被阻止）",
                 "lang_ru": "俄语", "lang_en": "英语", "lang_zh": "中文",
                 "save_as": "另存为...", "remove_bg": "移除背景", "remove_clicked_color": "删除所选背景",
+                "font": "字体",
                 "screenshot_tip": "鼠标左键: 复制到剪贴板并打开文件\n鼠标右键: 仅复制到剪贴板"
             }
         }
@@ -1079,6 +1305,14 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_shape)
 
         self.btn_text = self.create_tool_button(tr["text"], ICON_TEXT, lambda: self.overlay.set_tool("text"))
+
+        # 1. СНАЧАЛА КНОПКА ШРИФТА (в самом верху)
+        self.active_text_font_family = "Arial"
+        self.act_font = QAction(f"{tr['font']}: {self.active_text_font_family}", self.btn_text)
+        self.act_font.triggered.connect(self.choose_text_font)
+        self.btn_text.addAction(self.act_font)
+
+        # 2. ПОТОМ РАЗМЕРЫ ШРИФТА (ниже)
         self.setup_menu(self.btn_text, [16, 24, 36, 48, 72, 100, 150, 200, 300], self.set_text_font_size, tr["size"])
         layout.addWidget(self.btn_text)
 
@@ -1343,6 +1577,77 @@ class MainWindow(QMainWindow):
             act.triggered.connect(lambda checked, v=val: callback(v))
             btn.addAction(act)
 
+    def populate_font_menu(self):
+        self.font_menu.clear()
+        db = QFontDatabase()
+        for family in db.families():
+            act = QAction(family, self.font_menu)
+            act.setCheckable(True)
+            act.setChecked(family == self.active_text_font_family)
+            act.triggered.connect(lambda checked, f=family: self.set_text_font_family(f))
+            self.font_menu.addAction(act)
+
+    def choose_text_font(self, item_to_change=None):
+        tr = self.translations[self.lang]
+
+        # Создаем отдельное окно
+        dialog = QDialog(self)
+        dialog.setWindowTitle(tr["font"])
+        dialog.setModal(True)
+        dialog.setMinimumWidth(300)
+
+        dialog.setMinimumHeight(600)
+
+        layout = QVBoxLayout(dialog)
+
+        # Создаем список
+        list_widget = QListWidget()
+        db = QFontDatabase()
+        families = db.families()
+        list_widget.addItems(families)
+
+        app_font = QApplication.font()
+        base_size = app_font.pointSize()
+        if base_size < 1: base_size = 8
+        large_size = int(base_size * 1.8)
+
+        for i in range(len(families)):
+            list_item = list_widget.item(i)
+            font = QFont(families[i])
+            font.setPointSize(large_size)
+            list_item.setFont(font)
+
+        # Выделяем текущий шрифт
+        if self.active_text_font_family in families:
+            list_widget.setCurrentRow(families.index(self.active_text_font_family))
+            list_widget.scrollToItem(list_widget.currentItem())
+
+        layout.addWidget(list_widget)
+
+        # Добавляем кнопки ОК и Отмена
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(button_box)
+
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+
+        # Если нажали ОК — сохраняем выбор
+        if dialog.exec_() == QDialog.Accepted:
+            selected = list_widget.currentItem()
+            if selected:
+                self.active_text_font_family = selected.text()
+                self.act_font.setText(f"{tr['font']}: {self.active_text_font_family}")
+
+                # Если мы меняем шрифт уже нарисованного текста
+                if item_to_change:
+                    self.overlay.change_text_font(item_to_change, self.active_text_font_family)
+
+    def set_text_font_family(self, family):
+        self.active_text_font_family = family
+        tr = self.translations[self.lang]
+        self.act_font.setText(f"{tr['font']}: {family}")
+        for act in self.font_menu.actions():
+            act.setChecked(act.text() == family)
     def open_donate_link(self):
         if self.lang in ("EN", "ZH"):
             webbrowser.open("https://www.donationalerts.com/r/yaroslavkhmelev")
@@ -1374,6 +1679,7 @@ class MainWindow(QMainWindow):
         self.btn_pen.setText("  " + tr["pen"])
         self.btn_shape.setText("  " + tr["shape"])
         self.btn_text.setText("  " + tr["text"])
+        self.act_font.setText(f"{tr['font']}: {self.active_text_font_family}")
         self.btn_eraser.setText("  " + tr["eraser"])
         self.btn_eraser.setToolTip(tr["eraser_tip"])
         self.btn_color.setText("  " + tr["color"])
@@ -1408,6 +1714,12 @@ class MainWindow(QMainWindow):
         self.setup_menu(self.btn_pen, [2, 5, 10, 20, 30, 50], self.set_pen_width, tr["width"])
         self.setup_menu(self.btn_shape, [(tr["line"], "line"), (tr["rect"], "rect"), (tr["ellipse"], "ellipse"),
                                          (tr["arrow"], "arrow")], self.set_shape_type)
+
+        # ИСПРАВЛЕНИЕ: Пересоздаем кнопку выбора шрифта перед добавлением размеров
+        self.act_font = QAction(f"{tr['font']}: {self.active_text_font_family}", self.btn_text)
+        self.act_font.triggered.connect(self.choose_text_font)
+        self.btn_text.addAction(self.act_font)
+
         self.setup_menu(self.btn_text, [16, 24, 36, 48, 72, 100, 150, 200, 300], self.set_text_font_size, tr["size"])
         self.setup_menu(self.btn_eraser, [10, 20, 40, 60, 100, 200], self.set_eraser_width, tr["width"])
 
@@ -1473,19 +1785,23 @@ class MainWindow(QMainWindow):
             self.is_collapsed = True
             self.setMinimumSize(0, 0)
             for btn in self.all_buttons: btn.hide()
-            self.btn_toggle_text.hide();
-            self.btn_donate.hide();
-            self.btn_lang.hide();
+            self.btn_toggle_text.hide()
+            self.btn_donate.hide()
+            self.btn_lang.hide()
             self.app_title.hide()
             target_rect = QRect(start_rect.left(), start_rect.top(), 56, 44)
         else:
             self.is_collapsed = False
-            for btn in self.all_buttons: btn.show()
+            # Показываем ВСЕ кнопки одновременно
             self.btn_toggle_text.show()
             if not self.icons_only:
-                self.btn_donate.show();
-                self.btn_lang.show();
+                self.btn_donate.show()
+                self.btn_lang.show()
                 self.app_title.show()
+            for btn in self.all_buttons: btn.show()
+            # Принудительно пересчитываем layout ДО анимации
+            self.toolbar_widget.layout().invalidate()
+            self.toolbar_widget.layout().activate()
             target_rect = QRect(start_rect.left(), start_rect.top(), self.fixed_width, self.sizeHint().height())
         self.animate_geometry(start_rect, target_rect)
 

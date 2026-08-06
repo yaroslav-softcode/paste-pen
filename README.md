@@ -1,14 +1,14 @@
 ![Paste Pen Screenshot](screenshot.png)
 
-# ✏️ Paste Pen
+# Paste Pen
 
-**A portable app for drawing over the Windows screen, inserting images, and taking screenshots with build in background removal.** An extended alternative to Epic Pen and gInk — no installation required, fully open-source.
+**A portable app for drawing over the Windows screen, taking screenshots and inserting images with build in background removal.** An extended alternative to Epic Pen and gInk — no installation required, fully open-source.
 
-💡 *The project was born out of frustration with how existing tools handle image overlays on the desktop. I set out to fix that shortcoming — and a few others — from scratch.*
+💡 *The idea for this app came from my dissatisfaction with how existing alternatives handle inserting images over the desktop. I decided to eliminate this shortcoming in my app and include all the features I personally needed. Most importantly, I wanted a feature to insert charts with the ability to stretch them, transform and remove the background.*
 
 ---
 
-## 🚀 Features
+## Features
 
 ### Drawing & Tools
 - Draw with the left and right mouse buttons in **different colors simultaneously**.
@@ -18,10 +18,11 @@
 
 ### Image Handling
 - Insert from a file or the clipboard: move, scale proportionally or freely, reshape.
-- **Background removal** for inserted images — available at any time after insertion. Perfect for charts and screenshots. The result can be saved back to disk.
+- **Background removal** for inserted images — available at any time after insertion. The result can be saved back to disk.
+- **Insert chart** feature with the ability to stretch them and remove the background.
 - Layer management: bring images to the front or send them to the back.
 
-### 📽️ Presentation Mode (Insert Folder)
+### Presentation Mode (Insert Folder)
 - Pick a folder of images and flip through them with the mouse wheel right on your desktop (up → previous, down → next). The on-screen position is preserved between slides.
 - **Insert Folder without Background:** each file is automatically stripped of its background as you scroll.
 - Laser pointer (a red glowing dot) can be toggled on top of any active tool.
@@ -36,7 +37,7 @@
 
 ---
 
-## 🖱️ Controls
+## Controls
 
 | Action | Result |
 |---|---|
@@ -48,13 +49,15 @@
 | LMB on "Screenshot" | Copy to clipboard **+ open viewer** |
 | RMB on "Screenshot" | Copy to clipboard only |
 | RMB on "Image" | Menu: from clipboard, file, folder**(with scroll)** / **with of without background** |
+| LMB on image corners | Resize (proportional / free) |
+| RMB on image corners | Transform by X and Y axes |
 | RMB on "Cursor" | Toggle laser pointer |
 | RMB on "Hide/Show text" | Switch light/dark theme |
 | RMB on the language button | Choose language from the menu |
 
 ---
 
-## 💻 Download
+## Download
 
 **PastePen.exe** — a single portable file. No installation needed: download and run.
 
@@ -62,7 +65,7 @@
 
 ---
 
-## 📜 License
+## License
 
 MIT License — free to use for any purpose.
 
@@ -70,15 +73,15 @@ MIT License — free to use for any purpose.
 ---
 
 
-# ✏️ Paste Pen
+# Paste Pen
 
-**Портативная программа для рисования поверх экрана Windows, вставки изображений и создания скриншотов cо встроенным удалением фона.** Расширенный аналог Epic Pen и gInk — без установки, с открытым исходным кодом.
+**Портативная программа для рисования поверх экрана Windows, создания скриншотов и вставки изображений cо встроенным удалением фона.** Расширенный аналог Epic Pen и gInk — без установки, с открытым исходным кодом.
 
-💡 *Проект родился из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Я решил устранить этот и ряд других недостатков с нуля.*
+💡 *Идея создать собственное приложение возникла из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Я решил исправить это упущение и добавить всё, что мне нужно. Особенно необходима была функция вставки графиков с возможностью их растягивания, трансформации и удаления фона.*
 
 ---
 
-## 🚀 Возможности
+## Возможности
 
 ### Рисование и инструменты
 - Рисование левой и правой кнопкой мыши **разным цветом по выбору**.
@@ -88,10 +91,11 @@ MIT License — free to use for any purpose.
 
 ### Работа с изображениями
 - Вставка из файла или буфера обмена: перемещение, пропорциональное и свободное масштабирование, изменение формы.
-- **Удаление фона** у вставленных изображений — в любой момент после вставки. Идеально для работы с графиками. Результат можно сохранить обратно на компьютер.
+- **Удаление фона** у вставленных изображений — в любой момент после вставки. Результат можно сохранить обратно на компьютер.
+- Функция **вставки графиков** с возможностью их растягивания (ЛКМ), трансформации (ПКМ) и удаления фона.
 - Управление слоями: перенос картинок на передний или задний план.
 
-### 📽️ Режим презентаций (вставка папки)
+### Режим презентаций (вставка папки)
 - Выберите папку с изображениями — и листайте их колёсиком мыши прямо поверх рабочего стола (вверх → предыдущее, вниз → следующее).
 - **Вставка папки без фона:** каждый файл при перелистывании автоматически очищается от фона.
 - Лазерная указка (красная светящаяся точка) включается поверх любого инструмента.
@@ -106,7 +110,7 @@ MIT License — free to use for any purpose.
 
 ---
 
-## 🖱️ Управление
+## Управление
 
 | Действие | Результат |
 |---|---|
@@ -118,13 +122,15 @@ MIT License — free to use for any purpose.
 | ЛКМ по «Скриншот» | Копировать в буфер **+ открыть просмотр** |
 | ПКМ по «Скриншот» | Только копировать в буфер |
 | ПКМ по «Картинка» | Меню: вставка из буфера, файла, папки (со скроллом), с фоном и без |
+| ЛКМ по углам вставленного изображение | Растягивание изображения (с сохранением пропорций и без) |
+| ПКМ по углам вставленного изображение | Трансформация изображения по осям Х и Y (с сохранением пропорций и без) |
 | ПКМ по «Курсор» | Вкл./выкл. лазерную указку |
 | ПКМ по «Скрыть/Показать текст» | Переключение светлой/тёмной темы |
 | ПКМ по кнопке языка | Выбор языка из меню |
 
 ---
 
-## 💻 Скачать
+## Скачать
 
 **PastePen.exe** — портативный файл. Не требует установки: скачайте и запустите.
 
@@ -132,6 +138,6 @@ MIT License — free to use for any purpose.
 
 ---
 
-## 📜 Лицензия
+## Лицензия
 
 MIT License — свободное использование для любых целей.
