@@ -32,7 +32,7 @@
 - Capture a selected region **together with your drawings**.
 - Save to the clipboard and open in the system's default image viewer.
 - Multi-monitor support.
-- Trilingual interface: Русский / English / 中文 (language preference is saved automatically).
+- interface in 12 Languages: English, Russian, Chinese, Spanish, Portuguese, French, German, Italian, Arabic, Hindi, Japanese, Korean (language preference is saved automatically).
 - Light and dark UI themes.
 - Collapsible animated toolbar.
 
@@ -109,7 +109,7 @@ MIT License — free to use for any purpose.
 - Захват выделенной области **вместе с рисунками**.
 - Сохранение в буфер обмена и открытие в системном просмотрщике.
 - Поддержка нескольких мониторов.
-- Трёхъязычный интерфейс: Русский / English / 中文 (язык сохраняется автоматически).
+- Интерфейс на 12 языках: английский, русский, китайский, испанский, португальский, французский, немецкий, итальянский, арабский, хинди, японский, корейский. (выбранный язык сохраняется в настройках).
 - Светлая и тёмная темы оформления.
 - Сворачивающаяся анимированная панель инструментов.
 
