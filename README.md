@@ -53,7 +53,7 @@ Perfectly suited for **AI coding interactions**, **Presentations** and **Trading
 | RMB on text in Select mode | Deleting, rotating/scaling text |
 | RMB on an image in Select mode | Layer forward/back, delete, remove background |
 | LMB on "Screenshot" | Copy to clipboard **+ open viewer** |
-| RMB on "Screenshot" | Copy to clipboard only |
+| LMB on "Smart cut" | Desktop magic happens |
 | RMB on "Image" | Menu: from clipboard, file, folder**(with scroll)** / **with of without background** |
 | LMB on image corners | Resize (proportional / free) |
 | RMB on image corners | Transform by X and Y axes |
@@ -65,7 +65,7 @@ Perfectly suited for **AI coding interactions**, **Presentations** and **Trading
 
 ## Download
 
-**PastePen.exe** — a single portable file. No installation needed: download and run.
+**Paste Pen.exe** — a single portable file. No installation needed: download and run.
 
 > ⚠️ The program is not digitally signed, so Windows 11 may display a *"Windows protected your PC"* SmartScreen warning. This is a false positive: the source code is fully open and safe.
 
@@ -132,7 +132,7 @@ MIT License — free to use for any purpose.
 | ПКМ по тексту в режиме Выбор | Удаление, поворот/масштабирование текста  |
 | ПКМ по картинке в режиме «Выбор» | Удаление, Слой вперёд/назад, убрать фон, сохранить как |
 | ЛКМ по «Скриншот» | Копировать в буфер **+ открыть просмотр** |
-| ПКМ по «Скриншот» | Только копировать в буфер |
+| ЛКМ по «Смарт-скр.» | Магия на рабоче столе |
 | ПКМ по «Картинка» | Меню: вставка из буфера, файла, папки (со скроллом), с фоном и без |
 | ЛКМ по углам вставленного изображение | Растягивание изображения (с сохранением пропорций и без) |
 | ПКМ по углам вставленного изображение | Трансформация изображения по осям Х и Y (с сохранением пропорций и без) |
@@ -144,7 +144,7 @@ MIT License — free to use for any purpose.
 
 ## Скачать
 
-**PastePen.exe** — портативный файл. Не требует установки: скачайте и запустите.
+**Paste Pen.exe** — портативный файл. Не требует установки: скачайте и запустите.
 
 > ⚠️ Программа не имеет цифровой подписи, поэтому Windows 11 может показать предупреждение *«Система Windows защитила ваш компьютер»* (SmartScreen). Это ложное срабатывание: код полностью открыт и безопасен.
 
