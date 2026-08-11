@@ -19,7 +19,7 @@ Perfectly suited for **AI coding interactions**, **Presentations** and **Trading
 - **Smart vector eraser:** LMB erases pixels; RMB deletes an entire line or shape with a single click.
 
 ### Image Handling
-- Smart Cut: A tool for quickly editing desktop app and website designs to generate for AI code-fix tasks. It automatically fills the cropped area's background with a color sampled from the original screen, seamlessly blending it with your desktop.
+- Smart Cut — a tool for adjusting the design of apps and websites right on your desktop and preparing a task for the AI to modify the code (automatically fills the cropped area's background with a color sampled from the original screen, seamlessly blending it with your desktop).
 - Insert from a file or the clipboard: move, scale proportionally or freely, reshape.
 - **Background removal** for inserted images — available at any time after insertion. The result can be saved back to disk.
 - **Insert chart** feature with the ability to stretch them and remove the background.
@@ -98,7 +98,7 @@ MIT License — free to use for any purpose.
 - **Умный векторный ластик:** ЛКМ стирает пиксели, ПКМ — удаляет линию или фигуру целиком одним кликом.
 
 ### Работа с изображениями
-- Инструмент **«Смарт-скрин»** Функция для быстрой корректировки дизайна приложений и сайтов на рабочем столе для быстрой отправки ИИ задания на правку кода (автоматически заливает фон вырезанной области цветом, взятым с оригинального экрана, обеспечивая бесшовное слияние с рабочим столом).
+- **«Смарт-скрин»** - инструмент для корректировки дизайна приложений и сайтов прямо на рабочем столе и подготовке задания ИИ на изменение кода (автоматически заливает фон вырезанной области цветом, взятым с оригинального экрана, обеспечивая бесшовное слияние с рабочим столом).
 - Вставка из файла или буфера обмена: перемещение, пропорциональное и свободное масштабирование, изменение формы.
 - **Удаление фона** у вставленных изображений — в любой момент после вставки. Результат можно сохранить обратно на компьютер.
 - Функция **вставки графиков** с возможностью их растягивания (ЛКМ), трансформации (ПКМ) и удаления фона.
