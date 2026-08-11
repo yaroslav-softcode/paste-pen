@@ -2,7 +2,8 @@
 
 # Paste Pen
 
-**A portable app for drawing over the Windows screen, taking screenshots and inserting images with build in background removal.** An extended alternative to Epic Pen and gInk — no installation required, fully open-source.
+**A portable app for drawing over the Windows screen, taking screenshots and inserting images with build in background removal.** An extended alternative to Epic Pen and gInk.  
+Perfectly suited for **Presentations**, **AI coding interactions**, and **Trading** with charts overlay.". No installation required, fully open-source app. 
 
 💡 *The idea for this app came from my dissatisfaction with how existing alternatives handle inserting images over the desktop. I decided to eliminate this shortcoming in my own app and include all the features I personally needed. Especially, I wanted a feature for inserting charts with the ability to stretch them, transform and remove the background.*
 
@@ -32,7 +33,7 @@
 - Capture a selected region **together with your drawings**.
 - Save to the clipboard and open in the system's default image viewer.
 - Multi-monitor support.
-- Trilingual interface: Русский / English / 中文 (language preference is saved automatically).
+- interface in 12 Languages: English, Russian, Chinese, Spanish, Portuguese, French, German, Italian, Arabic, Hindi, Japanese, Korean (language preference is saved automatically).
 - Light and dark UI themes.
 - Collapsible animated toolbar.
 
@@ -79,9 +80,10 @@ MIT License — free to use for any purpose.
 
 # Paste Pen
 
-**Портативная программа для рисования поверх экрана Windows, создания скриншотов и вставки изображений cо встроенным удалением фона.** Расширенный аналог Epic Pen и gInk — без установки, с открытым исходным кодом.
+**Портативная программа для рисования поверх экрана Windows, создания скриншотов и вставки изображений cо встроенным удалением фона.** Расширенный аналог Epic Pen и gInk.  
+Идеальный инструмент для **Презентаций**, **Взаимодействия с ИИ** при написании кода и **Трейдинга** (наложение моделей на график)».  Приложение не требует установки, с открытым исходным кодом.
 
-💡 *Идея создать собственное приложение возникла из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Я решил исправить это упущение и ещё добавить всё, что мне нужно. Особенно необходима была функция вставки графиков с возможностью их растягивания, трансформации и удаления фона.*
+💡 *Идея создать собственное приложение возникла из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Решил исправить это упущение и ещё добавить всё, что мне нужно. Особенно необходима была функция вставки графиков с возможностью их растягивания, трансформации и удаления фона.*
 
 ---
 
@@ -107,9 +109,9 @@ MIT License — free to use for any purpose.
 
 ### Скриншоты и система
 - Захват выделенной области **вместе с рисунками**.
-- Сохранение в буфер обмена и открытие в системном просмотрщике.
+- Сохранение в буфер обмена и открытие в программе просмотра изображений.
 - Поддержка нескольких мониторов.
-- Трёхъязычный интерфейс: Русский / English / 中文 (язык сохраняется автоматически).
+- Интерфейс на 12 языках: английский, русский, китайский, испанский, португальский, французский, немецкий, итальянский, арабский, хинди, японский, корейский. (выбранный язык сохраняется в настройках).
 - Светлая и тёмная темы оформления.
 - Сворачивающаяся анимированная панель инструментов.
 

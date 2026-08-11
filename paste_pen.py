@@ -10,18 +10,65 @@ from ctypes import wintypes
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolBar, QAction, QLabel,
                              QFileDialog, QColorDialog, QMainWindow, QToolButton, QMenu, QLineEdit, QFrame, QVBoxLayout,
                              QHBoxLayout, QSizePolicy, QMessageBox, QSystemTrayIcon,
-                             QDialog, QListWidget, QDialogButtonBox)
-from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QCursor, QPolygonF, QFont, QFontMetrics, QIcon, QTransform, QPainterPath, QPainterPathStroker, QImage, QDesktopServices, QFontDatabase
-from PyQt5.QtCore import Qt, QPoint, QRect, QRectF, QSize, QPointF, QPropertyAnimation, QEasingCurve, QSettings, QUrl, QEvent
+                             QDialog, QListWidget, QDialogButtonBox, QListWidgetItem, QShortcut)
+from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QCursor, QPolygonF, QFont, QFontMetrics, QIcon, QTransform, \
+    QPainterPath, QPainterPathStroker, QImage, QDesktopServices, QFontDatabase, QKeySequence, QLinearGradient
+from PyQt5.QtCore import Qt, QPoint, QRect, QRectF, QSize, QPointF, QPropertyAnimation, QEasingCurve, QSettings, QUrl, \
+    QEvent, QTimer
 
 
-# --- Функция для создания векторных иконок (с возможностью перекраски) ---
-def get_svg_icon(svg_path, color="white"):
-    colored_svg = svg_path.replace('white', color)
+# --- Функция для создания плоских иконок (без 3D) ---
+def get_flat_svg_icon(svg_path, color="white"):
+    colored_svg = svg_path.replace('fill="white"', f'fill="{color}"').replace('stroke="white"', f'stroke="{color}"')
     pixmap = QPixmap(32, 32)
     pixmap.fill(Qt.transparent)
     pixmap.loadFromData(bytearray(colored_svg, encoding='utf-8'), "SVG")
     return QIcon(pixmap)
+
+
+# --- Функция для создания векторных иконок с эффектом 3D и глянцем ---
+def get_svg_icon(svg_path, color="white"):
+    qcolor = QColor(color)
+    if not qcolor.isValid():
+        qcolor = QColor("white")
+
+    # 1. Создаем плоскую иконку (маску)
+    flat_svg = svg_path.replace('fill="white"', 'fill="black"').replace('stroke="white"', 'stroke="black"')
+    temp_pixmap = QPixmap()
+    temp_pixmap.loadFromData(bytearray(flat_svg, encoding='utf-8'), "SVG")
+    temp_pixmap = temp_pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+    # 2. Создаем финальный пиксмэп
+    final_pixmap = QPixmap(64, 64)
+    final_pixmap.fill(Qt.transparent)
+
+    p = QPainter(final_pixmap)
+    p.setRenderHint(QPainter.Antialiasing, True)
+    p.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+    # 3. Рисуем 3D градиент
+    gradient = QLinearGradient(0, 0, 0, 64)
+    gradient.setColorAt(0.0, qcolor.lighter(180))
+    gradient.setColorAt(0.5, qcolor)
+    gradient.setColorAt(1.0, qcolor.darker(300))
+    p.fillRect(final_pixmap.rect(), gradient)
+
+    # 4. Обрезаем градиент строго по форме иконки
+    p.setCompositionMode(QPainter.CompositionMode_DestinationIn)
+    x = (64 - temp_pixmap.width()) // 2
+    y = (64 - temp_pixmap.height()) // 2
+    p.drawPixmap(x, y, temp_pixmap)
+
+    # 5. Добавляем стеклянный блик сверху
+    p.setCompositionMode(QPainter.CompositionMode_SourceAtop)
+    glossy_gradient = QLinearGradient(0, 0, 0, 64)
+    glossy_gradient.setColorAt(0.0, QColor(255, 255, 255, 110))
+    glossy_gradient.setColorAt(0.4, QColor(255, 255, 255, 0))
+    p.fillRect(final_pixmap.rect(), glossy_gradient)
+
+    p.end()
+
+    return QIcon(final_pixmap)
 
 
 # --- SVG иконки ---
@@ -40,6 +87,7 @@ ICON_COLOR = '<svg viewBox="0 0 24 24" fill="white"><path d="M12 2C6.5 2 2 6.5 2
 ICON_IMAGE = '<svg viewBox="0 0 24 24" fill="white"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>'
 ICON_SELECT = '<svg viewBox="0 0 24 24" fill="white"><path d="M12 2L8 6h3v3h2V6h3l-4-4zm0 20l4-4h-3v-3h-2v3H8l4 4zM2 12l4 4v-3h3v-2H6V8l-4 4zm20 0l-4-4v3h-3v2h3v3l4-4z"/></svg>'
 ICON_SCREENSHOT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
+ICON_AI = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21 L9 3 L14 21"/><path d="M6 15 H12"/><path d="M19 3 V21"/></svg>'
 ICON_UNDO = '<svg viewBox="0 0 24 24" fill="white"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>'
 ICON_HIDE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
 ICON_SHOW = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
@@ -56,6 +104,22 @@ ICON_RUPEE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="
 ICON_YEN = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 9 6-9M12 12v9M8 15h8M8 18h8"/></svg>'
 ICON_WON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4l3 16 3-12 3 12 3-16M3 10h18M3 14h18"/></svg>'
 ICON_LASER = '<svg viewBox="0 0 24 24" fill="#FF0000" stroke="white" stroke-width="1.5"><circle cx="12" cy="12" r="7" /></svg>'
+
+# --- Иконки языков (SVG с увеличенным текстом) ---
+LANG_ICONS_SVG = {
+    "EN": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">EN</text></svg>',
+    "RU": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">РУ</text></svg>',
+    "ZH": '<svg viewBox="0 0 24 24"><text x="12" y="20" font-family="Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">中</text></svg>',
+    "ES": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">ES</text></svg>',
+    "PT": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">PT</text></svg>',
+    "FR": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">FR</text></svg>',
+    "DE": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">DE</text></svg>',
+    "IT": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">IT</text></svg>',
+    "AR": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">AR</text></svg>',
+    "HI": '<svg viewBox="0 0 24 24"><text x="12" y="19" font-family="Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">HI</text></svg>',
+    "JA": '<svg viewBox="0 0 24 24"><text x="12" y="20" font-family="Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">日</text></svg>',
+    "KO": '<svg viewBox="0 0 24 24"><text x="12" y="20" font-family="Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">한</text></svg>'
+}
 
 
 class OverlayWidget(QWidget):
@@ -95,7 +159,7 @@ class OverlayWidget(QWidget):
         self.folder_files = []
         self.folder_index = -1
         self.folder_remove_bg = False
-        self.folder_pixmaps = {}  # Словарь для запоминания измененных картинок
+        self.folder_pixmaps = {}
 
         self.moving_image = None
         self.resizing_image = None
@@ -116,7 +180,16 @@ class OverlayWidget(QWidget):
         self.text_color = None
         self.screenshot_open_file = True
 
+        self.suppress_select_switch = False
+
+        self.ai_start_pos = None
+        self.ai_end_pos = None
+        self.ai_bg_color = QColor(255, 255, 255)
+        self.ai_is_lasso = False
+        self.ai_lasso_path = None
+
         self.undo_stack = []
+        self.redo_stack = []
         self.update_cursor()
 
     def closeEvent(self, event):
@@ -126,7 +199,7 @@ class OverlayWidget(QWidget):
             event.accept()
 
     def save_state(self):
-        if len(self.undo_stack) >= 15:
+        if len(self.undo_stack) >= 20:
             self.undo_stack.pop(0)
         drawings_copy = []
         for d in self.drawings:
@@ -135,18 +208,56 @@ class OverlayWidget(QWidget):
             if 'pixmap' in nd: nd['pixmap'] = nd['pixmap'].copy()
             if 'points' in nd: nd['points'] = [QPointF(p) for p in nd['points']]
             drawings_copy.append(nd)
-        # БОЛЬШЕ НЕ сохраняем canvas — только drawings
         self.undo_stack.append({'drawings': drawings_copy})
+        self.redo_stack.clear()
 
     def undo(self):
         self.commit_text()
         if self.undo_stack:
+            current_drawings = []
+            for d in self.drawings:
+                nd = d.copy()
+                if 'path' in nd: nd['path'] = QPainterPath(nd['path'])
+                if 'pixmap' in nd: nd['pixmap'] = nd['pixmap'].copy()
+                if 'points' in nd: nd['points'] = [QPointF(p) for p in nd['points']]
+                current_drawings.append(nd)
+            self.redo_stack.append({'drawings': current_drawings})
+
             state = self.undo_stack.pop()
             self.drawings = state['drawings']
-            self.rebuild_canvas()  # Перестраиваем canvas из drawings
+            self.rebuild_canvas()
             self.deselect_all_images()
             self.active_folder_item = None
             self.update()
+
+    def redo(self):
+        if self.redo_stack:
+            current_drawings = []
+            for d in self.drawings:
+                nd = d.copy()
+                if 'path' in nd: nd['path'] = QPainterPath(nd['path'])
+                if 'pixmap' in nd: nd['pixmap'] = nd['pixmap'].copy()
+                if 'points' in nd: nd['points'] = [QPointF(p) for p in nd['points']]
+                current_drawings.append(nd)
+            self.undo_stack.append({'drawings': current_drawings})
+
+            state = self.redo_stack.pop()
+            self.drawings = state['drawings']
+            self.rebuild_canvas()
+            self.deselect_all_images()
+            self.active_folder_item = None
+            self.update()
+
+    def delete_selected_item(self):
+        if self.tool != "select": return
+        for item in reversed(self.drawings):
+            if item.get('selected', False) or item.get('show_handles', False):
+                self.save_state()
+                self.drawings.remove(item)
+                self.rebuild_canvas()
+                self.deselect_all_images()
+                self.update()
+                break
 
     def nativeEvent(self, eventType, message):
         if eventType == b"windows_generic_MSG":
@@ -164,7 +275,7 @@ class OverlayWidget(QWidget):
         if self.tool == "text" and tool != "text":
             self.commit_text()
 
-        if self.is_hidden and tool in ("pen", "eraser", "shape", "text", "select"):
+        if self.is_hidden and tool in ("pen", "eraser", "shape", "text", "select", "ai"):
             self.is_hidden = False
             self.main_window.update_hide_button_state()
 
@@ -172,7 +283,7 @@ class OverlayWidget(QWidget):
             self.active_folder_item = None
             self.folder_files = []
             self.folder_index = -1
-            self.folder_pixmaps = {}  # Очищаем память
+            self.folder_pixmaps = {}
 
         self.tool = tool
         self.update_cursor()
@@ -181,6 +292,8 @@ class OverlayWidget(QWidget):
     def update_cursor(self):
         if self.tool == "eraser":
             self.update_eraser_cursor()
+        elif self.tool == "ai":
+            self.update_ai_cursor()
         elif self.laser_mode:
             self.update_laser_cursor()
         elif self.tool == "cursor":
@@ -189,7 +302,61 @@ class OverlayWidget(QWidget):
         elif self.tool == "text":
             self.setCursor(Qt.IBeamCursor)
         else:
-            self.setCursor(Qt.CrossCursor)
+            self.update_crosshair_cursor()
+
+    def _draw_crosshair(self, painter):
+        pen_black = QPen(Qt.black, 3)
+        pen_black.setCapStyle(Qt.RoundCap)
+        pen_white = QPen(Qt.white, 1.5)
+        pen_white.setCapStyle(Qt.RoundCap)
+
+        painter.setPen(pen_black)
+        painter.drawLine(QPointF(15, 0), QPointF(15, 12))
+        painter.drawLine(QPointF(15, 18), QPointF(15, 30))
+        painter.drawLine(QPointF(0, 15), QPointF(12, 15))
+        painter.drawLine(QPointF(18, 15), QPointF(30, 15))
+
+        painter.setPen(pen_white)
+        painter.drawLine(QPointF(15, 0), QPointF(15, 12))
+        painter.drawLine(QPointF(15, 18), QPointF(15, 30))
+        painter.drawLine(QPointF(0, 15), QPointF(12, 15))
+        painter.drawLine(QPointF(18, 15), QPointF(30, 15))
+
+    def update_crosshair_cursor(self):
+        size = 32
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        self._draw_crosshair(painter)
+        painter.end()
+        self.setCursor(QCursor(pixmap, 15, 15))
+
+    def update_ai_cursor(self):
+        size = 32
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        font = QFont("Arial", 8, QFont.Bold)
+        painter.setFont(font)
+        text = "ИИ" if self.main_window.lang == "RU" else "AI"
+
+        self._draw_crosshair(painter)
+
+        path = QPainterPath()
+        path.addText(QPointF(16, 24), font, text)
+        painter.setPen(QPen(Qt.black, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawPath(path)
+
+        painter.setPen(QPen(Qt.white, 1))
+        painter.setBrush(Qt.white)
+        painter.drawPath(path)
+
+        painter.end()
+        self.setCursor(QCursor(pixmap, 15, 15))
 
     def update_laser_cursor(self):
         size = 24
@@ -240,6 +407,7 @@ class OverlayWidget(QWidget):
                 item['selected'] = False
             elif item['type'] == 'text':
                 item['show_handles'] = False
+                item['selected'] = False
         self.update()
 
     def get_handle_rect(self, pt):
@@ -256,7 +424,6 @@ class OverlayWidget(QWidget):
         w = rect.width() / 2.0
         h = rect.height() / 2.0
 
-        # Локальные углы: TL, TR, BR, BL
         local_points = [
             QPointF(-w, -h),
             QPointF(w, -h),
@@ -346,7 +513,7 @@ class OverlayWidget(QWidget):
         elif item['type'] == 'shape':
             pen = QPen(item['color'], item['width'], Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             painter.setPen(pen)
-            if item['shape_type'] == 'arrow':
+            if item['shape_type'] == 'arrow' or item.get('fill', False):
                 painter.setBrush(item['color'])
             else:
                 painter.setBrush(Qt.NoBrush)
@@ -372,11 +539,9 @@ class OverlayWidget(QWidget):
             rect = fm.boundingRect(item['text'])
 
             painter.save()
-            # Перемещаемся в центр текста и вращаем
             painter.translate(item['pos'])
             painter.rotate(item.get('rotation', 0))
 
-            # Рисуем текст относительно центра
             draw_rect = QRectF(-rect.width() / 2.0, -rect.height() / 2.0, rect.width(), rect.height())
             painter.drawText(draw_rect, Qt.AlignCenter, item['text'])
             painter.restore()
@@ -387,9 +552,39 @@ class OverlayWidget(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         for item in self.drawings:
-            if item['type'] != 'image':
-                self.draw_item_on_painter(p, item)
+            if item['type'] == 'image': continue
+            if item.get('layer') in ('front', 'back'): continue
+            self.draw_item_on_painter(p, item)
         p.end()
+
+    def render_drawings(self, painter, is_capturing=False):
+        # 1. Элементы на ЗАДНЕМ плане (включая фон ИИ)
+        for item in self.drawings:
+            if item.get('layer', 'front') == 'back':
+                if item['type'] == 'image':
+                    self.draw_image_item(painter, item)
+                elif item['type'] in ('text', 'shape'):
+                    self.draw_item_on_painter(painter, item)
+
+        # 2. Canvas (Средний слой: ручка, ластик, фигуры)
+        painter.drawPixmap(0, 0, self.canvas)
+
+        # Текущий рисуемый элемент
+        if self.current_item:
+            self.draw_item_on_painter(painter, self.current_item)
+
+        # Отрисовка картинок на СРЕДНЕМ плане
+        for item in self.drawings:
+            if item.get('layer') == 'middle' and item['type'] == 'image':
+                self.draw_image_item(painter, item)
+
+        # 3. Элементы на ПЕРЕДНЕМ плане
+        for item in self.drawings:
+            if item.get('layer', 'front') == 'front':
+                if item['type'] == 'image':
+                    self.draw_image_item(painter, item)
+                elif item['type'] == 'text':
+                    self.draw_item_on_painter(painter, item)
 
     def hit_test_item(self, item, pos):
         if item['type'] in ('pen', 'shape'):
@@ -445,35 +640,78 @@ class OverlayWidget(QWidget):
         self.rebuild_canvas()
         self.update()
 
+    def get_pixel_color(self, global_pos):
+        try:
+            hdc = ctypes.windll.user32.GetDC(0)
+            r_sum, g_sum, b_sum = 0, 0, 0
+            count = 0
+            for x in range(global_pos.x() - 1, global_pos.x() + 2):
+                for y in range(global_pos.y() - 1, global_pos.y() + 2):
+                    color_ref = ctypes.windll.gdi32.GetPixel(hdc, x, y)
+                    if color_ref != 0xFFFFFFFF:
+                        r_sum += color_ref & 0xFF
+                        g_sum += (color_ref >> 8) & 0xFF
+                        b_sum += (color_ref >> 16) & 0xFF
+                        count += 1
+            ctypes.windll.user32.ReleaseDC(0, hdc)
+            if count > 0:
+                return QColor(r_sum // count, g_sum // count, b_sum // count, 255)
+        except Exception:
+            pass
+        return QColor(Qt.white)
+
+    def grab_screen_rect(self, global_rect):
+        try:
+            screen = QApplication.screenAt(global_rect.center())
+            if not screen: screen = QApplication.primaryScreen()
+        except:
+            screen = QApplication.primaryScreen()
+
+        geo = screen.geometry()
+        sx = global_rect.x() - geo.x()
+        sy = global_rect.y() - geo.y()
+        return screen.grabWindow(0, sx, sy, global_rect.width(), global_rect.height())
+
+    def capture_composite(self, rect):
+        global_top_left = self.mapToGlobal(rect.topLeft())
+        global_bottom_right = self.mapToGlobal(rect.bottomRight())
+        global_rect = QRect(global_top_left, global_bottom_right).normalized()
+
+        self.is_capturing = True
+        self.hide()
+        QApplication.processEvents()
+
+        desktop_pixmap = self.grab_screen_rect(global_rect)
+
+        overlay_pixmap = QPixmap(rect.size())
+        overlay_pixmap.fill(Qt.transparent)
+        ov = QPainter(overlay_pixmap)
+        ov.setRenderHint(QPainter.Antialiasing)
+        ov.setRenderHint(QPainter.SmoothPixmapTransform)
+        ov.translate(-rect.topLeft())
+        self.render_drawings(ov, is_capturing=True)
+        ov.end()
+
+        self.show()
+        self.main_window.force_topmost_all()
+        QApplication.processEvents()
+        self.is_capturing = False
+
+        p = QPainter(desktop_pixmap)
+        p.drawPixmap(0, 0, overlay_pixmap)
+        p.end()
+
+        return desktop_pixmap
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
-
-        # Фон-подложка (для click-through), но НЕ при захвате скриншота
         if (self.tool != "cursor" or self.laser_mode) and not self.is_capturing:
             painter.fillRect(self.rect(), QColor(0, 0, 0, 1))
-
         if not self.is_hidden:
-            # Картинки на заднем плане
-            for item in self.drawings:
-                if item['type'] == 'image' and item.get('layer', 'front') == 'back':
-                    self.draw_image_item(painter, item)
-
-            # Canvas (ручка, фигуры, ластик)
-            painter.drawPixmap(0, 0, self.canvas)
-
-            # Текущий рисуемый элемент
-            if self.current_item:
-                self.draw_item_on_painter(painter, self.current_item)
-
-            # Картинки на переднем плане
-            for item in self.drawings:
-                if item['type'] == 'image' and item.get('layer', 'front') == 'front':
-                    self.draw_image_item(painter, item)
-
-            # Маркеры выделения картинок — НЕ рисуем в режиме скриншота
-            if self.tool != "screenshot":
+            self.render_drawings(painter)
+            if self.tool != "screenshot" and not self.is_capturing:
                 for item in self.drawings:
                     if item['type'] == 'image' and item.get('selected', False):
                         pts = item['points']
@@ -489,10 +727,8 @@ class OverlayWidget(QWidget):
                                     painter.drawRect(handle)
                                 else:
                                     painter.setBrush(QColor(0, 120, 215))
-                                    painter.setPen(Qt.NoPen)
-                                painter.drawRect(handle)
-
-                # Маркеры текста — тоже не рисуем в режиме скриншота
+                                    painter.setPen(QPen(Qt.white, 1))
+                                    painter.drawRect(handle)
                 for item in self.drawings:
                     if item['type'] == 'text' and item.get('show_handles', False):
                         corners = self.get_text_corners(item)
@@ -503,22 +739,39 @@ class OverlayWidget(QWidget):
                             for i, pt in enumerate(corners):
                                 handle = self.get_handle_rect(pt)
                                 painter.setBrush(QColor(0, 120, 215))
-                                painter.setPen(Qt.NoPen)
+                                painter.setPen(QPen(Qt.white, 1))
                                 painter.drawRect(handle)
-
-        # Маска скриншота (только при выборе области, НЕ при захвате)
-        if self.tool == "screenshot" and self.screenshot_start_pos is not None and not self.is_capturing:
-            rect = QRect(self.screenshot_start_pos, self.screenshot_end_pos).normalized()
-            mask_color = QColor(0, 0, 0, 150)
-            painter.fillRect(QRect(0, 0, self.width(), rect.y()), mask_color)
-            painter.fillRect(QRect(0, rect.bottom() + 1, self.width(), self.height() - rect.bottom() - 1), mask_color)
-            painter.fillRect(QRect(0, rect.y(), rect.x(), rect.height()), mask_color)
-            painter.fillRect(QRect(rect.right() + 1, rect.y(), self.width() - rect.right() - 1, rect.height()),
-                             mask_color)
-            painter.setPen(QPen(QColor(0, 120, 215), 2))
-            painter.drawRect(rect)
+            if self.tool == "screenshot" and self.screenshot_start_pos is not None and not self.is_capturing:
+                rect = QRect(self.screenshot_start_pos, self.screenshot_end_pos).normalized()
+                mask_color = QColor(0, 0, 0, 150)
+                painter.fillRect(QRect(0, 0, self.width(), rect.y()), mask_color)
+                painter.fillRect(QRect(0, rect.bottom() + 1, self.width(), self.height() - rect.bottom() - 1),
+                                 mask_color)
+                painter.fillRect(QRect(0, rect.y(), rect.x(), rect.height()), mask_color)
+                painter.fillRect(QRect(rect.right() + 1, rect.y(), self.width() - rect.right() - 1, rect.height()),
+                                 mask_color)
+                painter.setPen(QPen(QColor(0, 120, 215), 2))
+                painter.drawRect(rect)
+            elif self.tool == "ai" and not self.is_capturing:
+                if self.ai_is_lasso and self.ai_lasso_path is not None:
+                    painter.setPen(QPen(QColor(0, 120, 215), 2))
+                    painter.setBrush(QColor(0, 120, 215, 50))
+                    painter.drawPath(self.ai_lasso_path)
+                elif self.ai_start_pos is not None:
+                    rect = QRect(self.ai_start_pos, self.ai_end_pos).normalized()
+                    mask_color = QColor(0, 0, 0, 150)
+                    painter.fillRect(QRect(0, 0, self.width(), rect.y()), mask_color)
+                    painter.fillRect(QRect(0, rect.bottom() + 1, self.width(), self.height() - rect.bottom() - 1),
+                                     mask_color)
+                    painter.fillRect(QRect(0, rect.y(), rect.x(), rect.height()), mask_color)
+                    painter.fillRect(QRect(rect.right() + 1, rect.y(), self.width() - rect.right() - 1, rect.height()),
+                                     mask_color)
+                    painter.setPen(QPen(QColor(0, 120, 215), 2))
+                    painter.drawRect(rect)
 
     def mousePressEvent(self, event):
+        if self.is_capturing: return
+
         if event.button() not in (Qt.LeftButton, Qt.RightButton): return
         if (event.buttons() & Qt.LeftButton) and (event.buttons() & Qt.RightButton):
             self.commit_text()
@@ -530,6 +783,9 @@ class OverlayWidget(QWidget):
             self.moving_text = None
             self.transforming_text = None
             self.screenshot_start_pos = None
+            self.ai_start_pos = None
+            self.ai_lasso_path = None
+            self.ai_is_lasso = False
             return
 
         if event.button() == Qt.LeftButton:
@@ -539,9 +795,7 @@ class OverlayWidget(QWidget):
 
         if self.is_hidden and self.tool != "screenshot": return
 
-        # ==================== РУЧКА И ЛАСТИК ====================
         if self.tool in ("pen", "eraser"):
-            # ПКМ ластик — удаляет объект целиком (линию, фигуру, картинку, текст)
             if self.tool == "eraser" and event.button() == Qt.RightButton:
                 for item in reversed(self.drawings):
                     if self.hit_test_item(item, event.pos()):
@@ -559,14 +813,14 @@ class OverlayWidget(QWidget):
             path.moveTo(event.pos())
             item_type = self.tool
             width = self.eraser_width if self.tool == "eraser" else self.pen_width
-            self.current_item = {'type': item_type, 'color': self.current_color, 'width': width, 'path': path}
+            self.current_item = {'type': item_type, 'color': self.current_color, 'width': width, 'path': path,
+                                 'layer': 'middle'}
             p = QPainter(self.canvas)
             p.setRenderHint(QPainter.Antialiasing)
             self.draw_item_on_painter(p, self.current_item)
             p.end()
             self.update()
 
-        # ==================== ФИГУРЫ ====================
         elif self.tool == "shape":
             self.save_state()
             self.deselect_all_images()
@@ -574,19 +828,35 @@ class OverlayWidget(QWidget):
             self.shape_end_pos = event.pos()
             path = self.get_shape_path(self.shape_type, self.shape_start_pos, self.shape_end_pos, self.pen_width)
             self.current_item = {'type': 'shape', 'shape_type': self.shape_type, 'color': self.current_color,
-                                 'width': self.pen_width, 'path': path}
+                                 'width': self.pen_width, 'path': path, 'layer': 'middle'}
             self.update()
 
-        # ==================== СКРИНШОТ ====================
         elif self.tool == "screenshot":
             self.screenshot_start_pos = event.pos()
             self.screenshot_end_pos = event.pos()
             self.update()
 
-        # ==================== ТЕКСТ (ВВОД) ====================
+        elif self.tool == "ai":
+            self.ai_is_lasso = (event.button() == Qt.RightButton)
+            global_pos = self.mapToGlobal(event.pos())
+            self.ai_bg_color = self.get_pixel_color(global_pos)
+
+            if self.ai_is_lasso:
+                self.ai_lasso_path = QPainterPath()
+                self.ai_lasso_path.moveTo(event.pos())
+            else:
+                self.ai_start_pos = event.pos()
+                self.ai_end_pos = event.pos()
+            self.update()
+
         elif self.tool == "text":
             if event.button() in (Qt.LeftButton, Qt.RightButton):
+                self.suppress_select_switch = True
                 self.commit_text()
+                self.suppress_select_switch = False
+
+                if self.tool != "text": return
+
                 self.save_state()
                 self.deselect_all_images()
                 self.text_color = self.current_color
@@ -600,9 +870,7 @@ class OverlayWidget(QWidget):
                 self.text_input.setFocus()
                 self.text_input.editingFinished.connect(self.commit_text)
 
-        # ==================== ВЫБОР (SELECT) ====================
         elif self.tool == "select":
-            # 1. Клик по маркерам текста (поворот/размер)
             for item in reversed(self.drawings):
                 if item['type'] == 'text' and item.get('show_handles', False):
                     corners = self.get_text_corners(item)
@@ -617,7 +885,6 @@ class OverlayWidget(QWidget):
                             }
                             return
 
-            # 2. Клик по тексту (перемещение / меню ПКМ)
             for item in reversed(self.drawings):
                 if item['type'] == 'text':
                     if self.hit_test_item(item, event.pos()):
@@ -627,6 +894,16 @@ class OverlayWidget(QWidget):
                             tr = self.main_window.translations[self.main_window.lang]
                             delete_action = menu.addAction(tr["delete"])
                             rotate_action = menu.addAction(tr["rotate"])
+
+                            menu.addSeparator()
+                            font_action = menu.addAction(tr["font"])
+                            change_color_action = menu.addAction(tr["color"])
+
+                            menu.addSeparator()
+                            front_action = menu.addAction(tr["front"])
+                            middle_action = menu.addAction(tr["middle"])
+                            back_action = menu.addAction(tr["back"])
+
                             action = menu.exec_(self.mapToGlobal(event.pos()))
                             if action == delete_action:
                                 self.save_state()
@@ -637,18 +914,44 @@ class OverlayWidget(QWidget):
                                 self.deselect_all_images()
                                 item['show_handles'] = True
                                 self.update()
+                            elif action == font_action:
+                                self.main_window.choose_text_font(item)
+                            elif action == change_color_action:
+                                self.main_window.choose_text_color_for_item(item)
+                            elif action == front_action:
+                                self.save_state()
+                                item['layer'] = 'front'
+                                self.rebuild_canvas()
+                                self.update()
+                            elif action == middle_action:
+                                self.save_state()
+                                item['layer'] = 'middle'
+                                self.rebuild_canvas()
+                                self.update()
+                            elif action == back_action:
+                                self.save_state()
+                                item['layer'] = 'back'
+                                self.rebuild_canvas()
+                                self.update()
                             return
                         elif event.button() == Qt.LeftButton:
                             self.save_state()
-                            for other in self.drawings:
-                                if other != item and other['type'] == 'text':
-                                    other['show_handles'] = False
-                            self.moving_text = item
-                            self.move_offset = event.pos() - item['pos']
+                            if event.modifiers() & Qt.ControlModifier:
+                                new_item = item.copy()
+                                new_item['pos'] = QPointF(item['pos'].x() + 20, item['pos'].y() + 20)
+                                self.drawings.append(new_item)
+                                self.deselect_all_images()
+                                new_item['selected'] = True
+                                self.moving_text = new_item
+                                self.move_offset = event.pos() - new_item['pos']
+                            else:
+                                self.deselect_all_images()
+                                item['selected'] = True
+                                self.moving_text = item
+                                self.move_offset = event.pos() - item['pos']
                             self.update()
                             return
 
-            # 3. Клик по маркерам картинок (изменение размера)
             if event.button() in (Qt.LeftButton, Qt.RightButton):
                 for item in reversed(self.drawings):
                     if item['type'] == 'image' and item.get('selected', False):
@@ -662,21 +965,31 @@ class OverlayWidget(QWidget):
                                 self.resize_button = event.button()
                                 return
 
-            # 4. Клик по картинкам (перемещение / меню ПКМ)
             for item in reversed(self.drawings):
                 if item['type'] == 'image' and len(item['points']) >= 4:
                     poly = QPolygonF(item['points'])
                     if poly.containsPoint(event.pos(), Qt.OddEvenFill):
                         if event.button() == Qt.LeftButton:
                             self.save_state()
-                            self.deselect_all_images()
-                            item['selected'] = True
-                            self.moving_image = item
-                            if self.active_folder_item != item:
-                                self.active_folder_item = None
-                                self.folder_files = []
-                                self.folder_index = -1
-                            self.move_offset = event.pos() - item['points'][0]
+                            if event.modifiers() & Qt.ControlModifier:
+                                new_item = item.copy()
+                                new_item['pixmap'] = item['pixmap'].copy()
+                                shift = QPointF(20, 20)
+                                new_item['points'] = [p + shift for p in item['points']]
+                                self.drawings.append(new_item)
+                                self.deselect_all_images()
+                                new_item['selected'] = True
+                                self.moving_image = new_item
+                                self.move_offset = event.pos() - new_item['points'][0]
+                            else:
+                                self.deselect_all_images()
+                                item['selected'] = True
+                                self.moving_image = item
+                                if self.active_folder_item != item:
+                                    self.active_folder_item = None
+                                    self.folder_files = []
+                                    self.folder_index = -1
+                                self.move_offset = event.pos() - item['points'][0]
                             self.update()
                             return
                         elif event.button() == Qt.RightButton:
@@ -693,6 +1006,7 @@ class OverlayWidget(QWidget):
                             delete_action = menu.addAction(tr["delete"])
                             menu.addSeparator()
                             front_action = menu.addAction(tr["front"])
+                            middle_action = menu.addAction(tr["middle"])
                             back_action = menu.addAction(tr["back"])
                             menu.addSeparator()
                             remove_bg_action = menu.addAction(tr["remove_bg"])
@@ -706,6 +1020,10 @@ class OverlayWidget(QWidget):
                             elif action == front_action:
                                 self.save_state()
                                 item['layer'] = 'front'
+                                self.update()
+                            elif action == middle_action:
+                                self.save_state()
+                                item['layer'] = 'middle'
                                 self.update()
                             elif action == back_action:
                                 self.save_state()
@@ -735,7 +1053,6 @@ class OverlayWidget(QWidget):
                                 self.main_window.save_image_as(item['pixmap'])
                             return
 
-            # 5. Клик по пустому месту
             if event.button() == Qt.LeftButton:
                 if self.active_folder_item:
                     self.active_folder_item = None
@@ -755,7 +1072,6 @@ class OverlayWidget(QWidget):
             self.save_state()
             pos = self.text_input.pos()
 
-            # Вычисляем центр текста для корректного вращения
             font = QFont(self.main_window.active_text_font_family)
             font.setPixelSize(self.text_font_size)
             font.setBold(True)
@@ -771,17 +1087,26 @@ class OverlayWidget(QWidget):
                 'text': text,
                 'font_family': self.main_window.active_text_font_family,
                 'rotation': 0,
-                'show_handles': False
+                'show_handles': False,
+                'selected': False
             }
 
             self.drawings.append(item)
             self.rebuild_canvas()
-            self.update()
+
+            if not getattr(self, 'suppress_select_switch', False):
+                self.tool = "select"
+                self.deselect_all_images()
+                item['selected'] = True
+                self.update_cursor()
+                self.update()
         self.text_input.deleteLater()
         self.text_input = None
         self.text_color = None
 
     def mouseMoveEvent(self, event):
+        if self.is_capturing: return
+
         if (event.buttons() & Qt.LeftButton) and (event.buttons() & Qt.RightButton):
             self.last_pos = None
             self.current_item = None
@@ -790,6 +1115,9 @@ class OverlayWidget(QWidget):
             self.moving_text = None
             self.transforming_text = None
             self.screenshot_start_pos = None
+            self.ai_start_pos = None
+            self.ai_lasso_path = None
+            self.ai_is_lasso = False
             return
 
         if not (event.buttons() & (Qt.LeftButton | Qt.RightButton)): return
@@ -814,8 +1142,13 @@ class OverlayWidget(QWidget):
         elif self.screenshot_start_pos is not None:
             self.screenshot_end_pos = event.pos()
             self.update()
+        elif self.tool == "ai" and self.ai_is_lasso and self.ai_lasso_path is not None:
+            self.ai_lasso_path.lineTo(event.pos())
+            self.update()
+        elif self.ai_start_pos is not None:
+            self.ai_end_pos = event.pos()
+            self.update()
 
-        # НОВОЕ: ОБРАБОТКА ПОВОРОТА И РАЗМЕРА ТЕКСТА
         elif self.transforming_text:
             if not (event.buttons() & Qt.LeftButton): return
             item = self.transforming_text
@@ -833,13 +1166,12 @@ class OverlayWidget(QWidget):
             start_angle = math.degrees(math.atan2(start_vec.y(), start_vec.x()))
             curr_angle = math.degrees(math.atan2(curr_vec.y(), curr_vec.x()))
 
-            # Поворот
             delta_angle = curr_angle - start_angle
-            item['rotation'] = self.text_transform_start['rotation'] + delta_angle
+            item['rotation'] = self.text_transform_start['rotation'] + (delta_angle * 0.5)
 
-            # Масштабирование (изменение размера шрифта)
             scale = curr_dist / start_dist
-            new_size = int(self.text_transform_start['font_size'] * scale)
+            sensitive_scale = 1.0 + (scale - 1.0) * 0.5
+            new_size = int(self.text_transform_start['font_size'] * sensitive_scale)
             item['font_size'] = max(4, new_size)
 
             self.rebuild_canvas()
@@ -911,43 +1243,120 @@ class OverlayWidget(QWidget):
                 pass
 
     def mouseReleaseEvent(self, event):
+        if self.is_capturing: return
+
         if event.button() not in (Qt.LeftButton, Qt.RightButton): return
 
         if self.tool == "screenshot" and self.screenshot_start_pos is not None:
             rect = QRect(self.screenshot_start_pos, self.screenshot_end_pos).normalized()
             self.screenshot_start_pos = None
             self.screenshot_end_pos = None
-            self.is_capturing = True
-            self.update()
-            QApplication.processEvents()
-            time.sleep(0.15)
             if rect.width() > 5 and rect.height() > 5:
-                global_top_left = self.mapToGlobal(rect.topLeft())
-                global_bottom_right = self.mapToGlobal(rect.bottomRight())
-                global_rect = QRect(global_top_left, global_bottom_right).normalized()
-                virtual_geo = QApplication.primaryScreen().virtualGeometry()
-                desktop_pixmap = QApplication.primaryScreen().grabWindow(0, virtual_geo.x(), virtual_geo.y(),
-                                                                         virtual_geo.width(), virtual_geo.height())
-                pixmap_x = global_rect.x() - virtual_geo.x()
-                pixmap_y = global_rect.y() - virtual_geo.y()
-                pixmap_rect = QRect(pixmap_x, pixmap_y, global_rect.width(), global_rect.height()).intersected(
-                    desktop_pixmap.rect())
-                if not pixmap_rect.isEmpty():
-                    screenshot_pixmap = desktop_pixmap.copy(pixmap_rect)
-                    if not screenshot_pixmap.isNull():
-                        QApplication.clipboard().setPixmap(screenshot_pixmap)
-                        if self.screenshot_open_file:
-                            try:
-                                temp_dir = tempfile.gettempdir()
-                                filename = f"paste_pen_{int(time.time())}.png"
-                                file_path = os.path.join(temp_dir, filename)
-                                screenshot_pixmap.save(file_path, "PNG")
-                                QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
-                            except Exception:
-                                pass
-            self.is_capturing = False
-            self.set_tool("cursor")
+                screenshot_pixmap = self.capture_composite(rect)
+
+                if not screenshot_pixmap.isNull():
+                    QApplication.clipboard().setPixmap(screenshot_pixmap)
+                    if event.button() == Qt.LeftButton:
+                        try:
+                            temp_dir = tempfile.gettempdir()
+                            filename = f"paste_pen_{int(time.time())}.png"
+                            file_path = os.path.join(temp_dir, filename)
+                            screenshot_pixmap.save(file_path, "PNG")
+                            QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
+                        except Exception:
+                            pass
             self.update()
+            self.set_tool("cursor")
+            return
+
+        if self.tool == "ai" and (self.ai_start_pos is not None or self.ai_lasso_path is not None):
+            if self.ai_is_lasso and self.ai_lasso_path is not None:
+                self.ai_lasso_path.closeSubpath()
+                rect = self.ai_lasso_path.boundingRect().toRect().normalized()
+                if rect.width() > 5 and rect.height() > 5:
+                    screenshot_pixmap = self.capture_composite(rect)
+
+                    if not screenshot_pixmap.isNull():
+                        masked_pixmap = QPixmap(screenshot_pixmap.size())
+                        masked_pixmap.fill(Qt.transparent)
+                        local_path = QTransform().fromTranslate(-rect.x(), -rect.y()).map(self.ai_lasso_path)
+                        p = QPainter(masked_pixmap)
+                        p.setRenderHint(QPainter.Antialiasing)
+                        p.setClipPath(local_path)
+                        p.drawPixmap(0, 0, screenshot_pixmap)
+                        p.end()
+
+                        self.save_state()
+                        self.deselect_all_images()
+                        bg_item = {
+                            'type': 'shape',
+                            'shape_type': 'custom',
+                            'color': QColor(self.ai_bg_color),
+                            'width': 1,
+                            'path': QPainterPath(self.ai_lasso_path),
+                            'layer': 'back',
+                            'fill': True,
+                            'is_ai_bg': True
+                        }
+                        self.drawings.append(bg_item)
+                        points = [
+                            QPointF(rect.x(), rect.y()),
+                            QPointF(rect.x() + rect.width(), rect.y()),
+                            QPointF(rect.x() + rect.width(), rect.y() + rect.height()),
+                            QPointF(rect.x(), rect.y() + rect.height())
+                        ]
+                        img_item = {
+                            'type': 'image',
+                            'pixmap': masked_pixmap,
+                            'points': points,
+                            'selected': True,
+                            'layer': 'back'
+                        }
+                        self.drawings.append(img_item)
+                        self.rebuild_canvas()
+            else:
+                rect = QRect(self.ai_start_pos, self.ai_end_pos).normalized()
+                if rect.width() > 5 and rect.height() > 5:
+                    screenshot_pixmap = self.capture_composite(rect)
+
+                    if not screenshot_pixmap.isNull():
+                        self.save_state()
+                        self.deselect_all_images()
+                        bg_rect_path = QPainterPath()
+                        bg_rect_path.addRect(QRectF(rect.topLeft(), rect.bottomRight()))
+                        bg_item = {
+                            'type': 'shape',
+                            'shape_type': 'rect',
+                            'color': QColor(self.ai_bg_color),
+                            'width': 1,
+                            'path': bg_rect_path,
+                            'layer': 'back',
+                            'fill': True,
+                            'is_ai_bg': True
+                        }
+                        self.drawings.append(bg_item)
+                        points = [
+                            QPointF(rect.x(), rect.y()),
+                            QPointF(rect.x() + rect.width(), rect.y()),
+                            QPointF(rect.x() + rect.width(), rect.y() + rect.height()),
+                            QPointF(rect.x(), rect.y() + rect.height())
+                        ]
+                        img_item = {
+                            'type': 'image',
+                            'pixmap': screenshot_pixmap,
+                            'points': points,
+                            'selected': True,
+                            'layer': 'back'
+                        }
+                        self.drawings.append(img_item)
+                        self.rebuild_canvas()
+
+            self.ai_start_pos = None
+            self.ai_end_pos = None
+            self.ai_lasso_path = None
+            self.ai_is_lasso = False
+            self.ai_bg_color = QColor(255, 255, 255)
+            self.set_tool("select")
             return
 
         if self.current_item:
@@ -964,50 +1373,112 @@ class OverlayWidget(QWidget):
             self.current_item = None
             self.last_pos = None
             self.update()
-
         self.moving_image = None
         self.resizing_image = None
         self.moving_text = None
         self.transforming_text = None
 
     def wheelEvent(self, event):
-        if self.active_folder_item and self.tool == "select":
-            delta = event.angleDelta().y()
-            if delta > 0:
-                self.folder_index = (self.folder_index - 1) % len(self.folder_files)
-            else:
-                self.folder_index = (self.folder_index + 1) % len(self.folder_files)
+        if self.tool == "select":
+            target_item = None
+            for item in reversed(self.drawings):
+                if item.get('selected', False):
+                    target_item = item
+                    break
 
-            # Проверяем кэш. Если картинка уже была загружена/изменена — берем её оттуда
-            if self.folder_index in self.folder_pixmaps:
-                new_pixmap = self.folder_pixmaps[self.folder_index]
-            else:
-                file_path = self.folder_files[self.folder_index]
-                new_pixmap = QPixmap(file_path)
+            if self.active_folder_item and (event.modifiers() & Qt.ShiftModifier):
+                delta = event.angleDelta().y()
+                if delta > 0:
+                    self.folder_index = (self.folder_index - 1) % len(self.folder_files)
+                else:
+                    self.folder_index = (self.folder_index + 1) % len(self.folder_files)
+
+                if self.folder_index in self.folder_pixmaps:
+                    new_pixmap = self.folder_pixmaps[self.folder_index]
+                else:
+                    file_path = self.folder_files[self.folder_index]
+                    new_pixmap = QPixmap(file_path)
+                    if not new_pixmap.isNull():
+                        if self.folder_remove_bg:
+                            new_pixmap = self.main_window.remove_chart_background(new_pixmap, threshold=20)
+
+                        if new_pixmap.width() > 1500 or new_pixmap.height() > 1500:
+                            new_pixmap = new_pixmap.scaled(1500, 1500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+                    self.folder_pixmaps[self.folder_index] = new_pixmap
+
                 if not new_pixmap.isNull():
-                    if self.folder_remove_bg:
-                        new_pixmap = self.main_window.remove_chart_background(new_pixmap, threshold=20)
+                    old_tl = self.active_folder_item['points'][0]
+                    w = new_pixmap.width()
+                    h = new_pixmap.height()
 
-                    if new_pixmap.width() > 1500 or new_pixmap.height() > 1500:
-                        new_pixmap = new_pixmap.scaled(1500, 1500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self.active_folder_item['points'] = [
+                        QPointF(old_tl.x(), old_tl.y()),
+                        QPointF(old_tl.x() + w, old_tl.y()),
+                        QPointF(old_tl.x() + w, old_tl.y() + h),
+                        QPointF(old_tl.x(), old_tl.y() + h)
+                    ]
+                    self.active_folder_item['pixmap'] = new_pixmap
+                    self.update()
+                event.accept()
+                return
 
-                self.folder_pixmaps[self.folder_index] = new_pixmap
+            if target_item:
+                self.save_state()
+                delta = event.angleDelta().y()
+                is_ctrl = event.modifiers() & Qt.ControlModifier
 
-            if not new_pixmap.isNull():
-                old_tl = self.active_folder_item['points'][0]
-                w = new_pixmap.width()
-                h = new_pixmap.height()
+                if is_ctrl:
+                    scale_factor = 1.05 if delta > 0 else 0.95
+                    if target_item['type'] == 'image':
+                        p0, p1 = target_item['points'][0], target_item['points'][1]
+                        w = math.hypot(p1.x() - p0.x(), p1.y() - p0.y())
+                        if w * scale_factor < 5 and scale_factor < 1.0:
+                            event.accept()
+                            return
 
-                self.active_folder_item['points'] = [
-                    QPointF(old_tl.x(), old_tl.y()),
-                    QPointF(old_tl.x() + w, old_tl.y()),
-                    QPointF(old_tl.x() + w, old_tl.y() + h),
-                    QPointF(old_tl.x(), old_tl.y() + h)
-                ]
-                self.active_folder_item['pixmap'] = new_pixmap
+                        center = QPointF(
+                            sum(p.x() for p in target_item['points']) / 4.0,
+                            sum(p.y() for p in target_item['points']) / 4.0
+                        )
+                        new_points = []
+                        for p in target_item['points']:
+                            dx = p.x() - center.x()
+                            dy = p.y() - center.y()
+                            new_points.append(QPointF(center.x() + dx * scale_factor, center.y() + dy * scale_factor))
+                        target_item['points'] = new_points
+                    elif target_item['type'] == 'text':
+                        new_size = max(4, int(target_item['font_size'] * scale_factor))
+                        if delta > 0 and new_size <= target_item['font_size']:
+                            new_size = target_item['font_size'] + 1
+                        target_item['font_size'] = new_size
+                else:
+                    angle_deg = 2.5 if delta < 0 else -2.5
+                    angle_rad = math.radians(angle_deg)
+                    cos_a = math.cos(angle_rad)
+                    sin_a = math.sin(angle_rad)
+
+                    if target_item['type'] == 'image':
+                        center = QPointF(
+                            sum(p.x() for p in target_item['points']) / 4.0,
+                            sum(p.y() for p in target_item['points']) / 4.0
+                        )
+                        new_points = []
+                        for p in target_item['points']:
+                            dx = p.x() - center.x()
+                            dy = p.y() - center.y()
+                            new_x = center.x() + (dx * cos_a - dy * sin_a)
+                            new_y = center.y() + (dx * sin_a + dy * cos_a)
+                            new_points.append(QPointF(new_x, new_y))
+                        target_item['points'] = new_points
+                    elif target_item['type'] == 'text':
+                        target_item['rotation'] = target_item.get('rotation', 0) + angle_deg
+
+                self.rebuild_canvas()
                 self.update()
-            event.accept()
-            return
+                event.accept()
+                return
+
         super().wheelEvent(event)
 
     def insert_pixmap(self, pixmap):
@@ -1021,7 +1492,7 @@ class OverlayWidget(QWidget):
         points = [QPointF(x, y), QPointF(x + w, y), QPointF(x + w, y + h), QPointF(x, y + h)]
         self.save_state()
         self.deselect_all_images()
-        self.drawings.append({'type': 'image', 'pixmap': pixmap, 'points': points, 'selected': True, 'layer': 'front'})
+        self.drawings.append({'type': 'image', 'pixmap': pixmap, 'points': points, 'selected': True, 'layer': 'back'})
         self.set_tool("select")
         self.update()
 
@@ -1040,7 +1511,7 @@ class OverlayWidget(QWidget):
         self.folder_files = files
         self.folder_index = 0
         self.folder_remove_bg = remove_bg
-        self.folder_pixmaps = {}  # Очищаем кэш при новой загрузке
+        self.folder_pixmaps = {}
 
         pixmap = QPixmap(files[0])
         if pixmap.isNull(): return False
@@ -1051,7 +1522,7 @@ class OverlayWidget(QWidget):
         if pixmap.width() > 1500 or pixmap.height() > 1500:
             pixmap = pixmap.scaled(1500, 1500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-        self.folder_pixmaps[0] = pixmap  # Сохраняем первую картинку в кэш
+        self.folder_pixmaps[0] = pixmap
 
         x = self.width() // 2 - pixmap.width() // 2
         y = self.height() // 2 - pixmap.height() // 2
@@ -1061,7 +1532,7 @@ class OverlayWidget(QWidget):
 
         self.save_state()
         self.deselect_all_images()
-        self.drawings.append({'type': 'image', 'pixmap': pixmap, 'points': points, 'selected': True, 'layer': 'front'})
+        self.drawings.append({'type': 'image', 'pixmap': pixmap, 'points': points, 'selected': True, 'layer': 'back'})
         self.active_folder_item = self.drawings[-1]
 
         self.tool = "select"
@@ -1077,7 +1548,7 @@ class OverlayWidget(QWidget):
         self.active_folder_item = None
         self.folder_files = []
         self.folder_index = -1
-        self.folder_pixmaps = {}  # Очищаем память
+        self.folder_pixmaps = {}
         self.update()
 
     def toggle_hide(self):
@@ -1129,335 +1600,437 @@ class MainWindow(QMainWindow):
         self.theme = self.settings.value("theme", "dark", type=str)
         self.icon_color = "white" if self.theme == "dark" else "#333333"
 
+        self.shortcut_del = QShortcut("Delete", self)
+        self.shortcut_del.activated.connect(self.overlay.delete_selected_item)
+        self.shortcut_bsp = QShortcut("Backspace", self)
+        self.shortcut_bsp.activated.connect(self.overlay.delete_selected_item)
+
         self.translations = {
             "RU": {
                 "cursor": "Курсор", "pen": "Ручка", "shape": "Фигуры", "text": "Текст",
                 "eraser": "Ластик", "color": "Цвет", "image": "Картинка", "select": "Выбор",
                 "screenshot": "Скриншот", "delete": "Удалить",
-                "front": "На передний план", "back": "На задний план",
-                "undo": "Назад", "hide": "Скрыть", "show": "Показать", "clear": "Очистить",
+                "front": "На передний план", "middle": "На средний план", "back": "На задний план",
+                "undo": "Назад", "redo": "Вперёд", "hide": "Скрыть", "show": "Показать", "clear": "Очистить",
                 "exit": "Выход",
                 "width": "Толщина: {}", "size": "Размер: {}",
                 "line": "Линия", "rect": "Прямоугольник", "ellipse": "Эллипс", "arrow": "Стрелка",
                 "next_lang": "中", "current_lang": "РУ", "donate_tip": "Поддержать на Boosty",
-                "cursor_tip": "Переключение на курсор: ЛКМ + ПКМ",
-                "color_tip": "ЛКМ: цвет левой кнопки\nПКМ: цвет правой кнопки",
+                "cursor_tip": "ЛКМ+ПКМ - переключение на курсор из всех режимов\nПКМ - выбор лазерной указки",
+                "pen_tip": "ЛКМ - режим рисования\nПКМ - выбор размера линий",
+                "shape_tip": "ЛКМ - рисование фигур\nПКМ - выбор фигуры",
+                "text_tip": "ЛКМ - вставка текста\nПКМ - выбор шрифта и размера",
+                "eraser_tip": "ЛКМ - стирание линий, ПКМ - удаление объектов\nПКМ - выбор величины ластика",
+                "image_tip": "ЛКМ - вставка из файла\nПКМ - выбор режима вставки",
+                "select_tip": "ЛКМ - управление вставленным текстом и картинками\nCtrl +ЛКМ - копирование выбранного объекта\nКолёсико мыши - поворот объекта\nCtrl+колёсико мыши - увеличение/уменьшение объекта",
+                "lang_tip": "ЛКМ - следующий язык\nПКМ - выбор языка",
+                "theme_tip": "ЛКМ - скрыть/показать текст\nПКМ - выбор тёмной/светлой темы",
+                "ai_tip": "При использовании с помощью ЛКМ - вырезает прямоугольную область\nПри использовании с помощью ПКМ - вырезает произвольную область",
+                "color_tip": "ЛКМ - выбор цвета левой кнопки\nПКМ - выбор цвета правой кнопки",
                 "paste_img": "Вставить из буфера", "paste_chart_img": "Вставить из буфера без фона",
                 "insert_img_from_file": "Вставить из файла", "paste_img_no_bg": "Вставить из файла без фона",
-                "insert_folder_wheel": "Вставить папку (колесико мыши)",
-                "insert_folder_no_bg_wheel": "Вставить папку без фона (колесико мыши)",
+                "insert_folder_wheel": "Вставить папку (Shift + колесико)",
+                "insert_folder_no_bg_wheel": "Вставить папку без фона (Shift + колесико)",
                 "no_img_clip": "В буфере обмена нет изображения.",
                 "no_img_folder": "В выбранной папке нет изображений.",
                 "theme_light": "Светлая тема", "theme_dark": "Тёмная тема",
-                "eraser_tip": "ЛКМ: стирание ластиком\nПКМ: удаление линии целиком",
                 "normal_cursor": "Обычный курсор", "laser_cursor": "Лазерная указка",
                 "laser_tip": "Курсор станет красной точкой.\n(Клики заблокированы до возврата на обычный курсор)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Сохранить как...", "remove_bg": "Убрать фон",
                 "font": "Шрифт", "remove_clicked_color": "Удалить выбранный фон",
-                "screenshot_tip": "ЛКМ: копирование в буфер и открытие файла\nПКМ: только копирование в буфер",
-                "rotate": "Повернуть / Размер"
+                "screenshot_tip": "При создании с помощью ЛКМ - копирование в буфер обмена и открытие файла\nПри создании с помощью ПКМ - только копирование в буфер обмена",
+                "rotate": "Повернуть / Размер", "ai": "Смарт-скр."
             },
             "EN": {
                 "cursor": "Cursor", "pen": "Pen", "shape": "Shapes", "text": "Text",
                 "eraser": "Eraser", "color": "Color", "image": "Image", "select": "Select",
                 "screenshot": "Screenshot", "delete": "Delete",
-                "front": "Bring to Front", "back": "Send to Back",
-                "undo": "Undo", "hide": "Hide", "show": "Show", "clear": "Clear",
+                "front": "Bring to Front", "middle": "Middle Layer", "back": "Send to Back",
+                "undo": "Undo", "redo": "Redo", "hide": "Hide", "show": "Show", "clear": "Clear",
                 "exit": "Exit",
                 "width": "Width: {}", "size": "Size: {}",
                 "line": "Line", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Arrow",
                 "next_lang": "РУ", "current_lang": "EN", "donate_tip": "Support on DonationAlerts",
-                "cursor_tip": "Switch to cursor: LMB + RMB",
-                "color_tip": "LMB: left button color\nRMB: right button color",
+                "cursor_tip": "LMB+RMB - switch to cursor from all modes\nRMB - select laser pointer",
+                "pen_tip": "LMB - drawing mode\nRMB - select line size",
+                "shape_tip": "LMB - draw shapes\nRMB - select shape",
+                "text_tip": "LMB - insert text\nRMB - select font and size",
+                "eraser_tip": "LMB - erase lines, RMB - delete objects\nRMB - select eraser size",
+                "image_tip": "LMB - insert from file\nRMB - choose insertion mode",
+                "select_tip": "LMB - manage inserted text and pictures\nCtrl + LMB - copy selected object\nMouse wheel - rotate object\nCtrl + mouse wheel - increase/decrease object",
+                "lang_tip": "LMB - next language\nRMB - select language",
+                "theme_tip": "LMB - hide/show text\nRMB - select dark/light theme",
+                "ai_tip": "When using LMB - cuts out a rectangular area\nWhen using RMB - cuts out an arbitrary area",
+                "color_tip": "LMB - select left button color\nRMB - select right button color",
                 "paste_img": "Paste from clipboard", "paste_chart_img": "Paste from clipboard without background",
                 "insert_img_from_file": "Insert from file", "paste_img_no_bg": "Insert from file without background",
-                "insert_folder_wheel": "Insert folder (mouse wheel)",
-                "insert_folder_no_bg_wheel": "Insert folder without background (mouse wheel)",
+                "insert_folder_wheel": "Insert folder (Shift + mouse wheel)",
+                "insert_folder_no_bg_wheel": "Insert folder without background (Shift + mouse wheel)",
                 "no_img_clip": "No image in clipboard.", "no_img_folder": "No images found in the selected folder.",
                 "theme_light": "Light Theme", "theme_dark": "Dark Theme",
-                "eraser_tip": "LMB: erase pixels\nRMB: delete entire line",
                 "normal_cursor": "Normal Cursor", "laser_cursor": "Laser Pointer",
                 "laser_tip": "Cursor becomes a red dot.\n(Clicks are blocked until returning to normal cursor)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Save As...", "remove_bg": "Remove background",
                 "font": "Font", "remove_clicked_color": "Remove selected background",
-                "screenshot_tip": "LMB: copy to clipboard and open file\nRMB: copy to clipboard only",
-                "rotate": "Rotate / Resize"
+                "screenshot_tip": "When creating with LMB - copy to clipboard and open file\nWhen creating with RMB - copy to clipboard only",
+                "rotate": "Rotate / Resize", "ai": "Smart Cut"
             },
             "ZH": {
                 "cursor": "光标", "pen": "画笔", "shape": "形状", "text": "文本",
                 "eraser": "橡皮擦", "color": "颜色", "image": "图片", "select": "选择",
                 "screenshot": "截图", "delete": "删除",
-                "front": "置于顶层", "back": "置于底层",
-                "undo": "撤销", "hide": "隐藏", "show": "显示", "clear": "清除",
+                "front": "置于顶层", "middle": "中间层", "back": "置于底层",
+                "undo": "撤销", "redo": "重做", "hide": "隐藏", "show": "显示", "clear": "清除",
                 "exit": "退出",
                 "width": "粗细: {}", "size": "大小: {}",
                 "line": "直线", "rect": "矩形", "ellipse": "椭圆", "arrow": "箭头",
                 "next_lang": "ES", "current_lang": "中", "donate_tip": "在 DonationAlerts 上支持",
-                "cursor_tip": "切换到光标: 鼠标左键 + 右键",
-                "color_tip": "左键: 左键颜色\n右键: 右键颜色",
+                "cursor_tip": "左键+右键 - 从所有模式切换到光标\n右键 - 选择激光笔",
+                "pen_tip": "左键 - 绘图模式\n右键 - 选择线条大小",
+                "shape_tip": "左键 - 绘制形状\n右键 - 选择形状",
+                "text_tip": "左键 - 插入文本\n右键 - 选择字体和大小",
+                "eraser_tip": "左键 - 擦除线条，右键 - 删除对象\n右键 - 选择橡皮擦大小",
+                "image_tip": "左键 - 从文件插入\n右键 - 选择插入模式",
+                "select_tip": "左键 - 管理插入的文本和图片\nCtrl + 左键 - 复制选定对象\n鼠标滚轮 - 旋转对象\nCtrl + 鼠标滚轮 - 放大/缩小对象",
+                "lang_tip": "左键 - 下一个语言\n右键 - 选择语言",
+                "theme_tip": "左键 - 隐藏/显示文本\n右键 - 选择深色/浅色主题",
+                "ai_tip": "使用左键时 - 剪切矩形区域\n使用右键时 - 剪切任意区域",
+                "color_tip": "左键 - 选择左键颜色\n右键 - 选择右键颜色",
                 "paste_img": "从剪贴板粘贴", "paste_chart_img": "从剪贴板粘贴无背景",
                 "insert_img_from_file": "从文件插入", "paste_img_no_bg": "从文件插入无背景图片",
-                "insert_folder_wheel": "插入文件夹 (鼠标滚轮)",
-                "insert_folder_no_bg_wheel": "插入无背景文件夹 (鼠标滚轮)",
+                "insert_folder_wheel": "插入文件夹 (Shift + 鼠标滚轮)",
+                "insert_folder_no_bg_wheel": "插入无背景文件夹 (Shift + 鼠标滚轮)",
                 "no_img_clip": "剪贴板中没有图像。", "no_img_folder": "所选文件夹中没有图像。",
                 "theme_light": "浅色主题", "theme_dark": "深色主题",
-                "eraser_tip": "左键: 擦除像素\n右键: 删除整条线",
                 "normal_cursor": "普通光标", "laser_cursor": "激光笔",
                 "laser_tip": "光标变为红点。\n（在返回普通光标前点击被阻止）",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "另存为...", "remove_bg": "移除背景",
                 "font": "字体", "remove_clicked_color": "删除所选背景",
-                "screenshot_tip": "鼠标左键: 复制到剪贴板并打开文件\n鼠标右键: 仅复制到剪贴板",
-                "rotate": "旋转 / 调整大小"
+                "screenshot_tip": "使用左键创建时 - 复制到剪贴板并打开文件\n使用右键创建时 - 仅复制到剪贴板",
+                "rotate": "旋转 / 调整大小", "ai": "智能剪切"
             },
             "ES": {
                 "cursor": "Cursor", "pen": "Lápiz", "shape": "Formas", "text": "Texto",
                 "eraser": "Borrador", "color": "Color", "image": "Imagen", "select": "Seleccionar",
                 "screenshot": "Captura", "delete": "Eliminar",
-                "front": "Al frente", "back": "Al fondo",
-                "undo": "Deshacer", "hide": "Ocultar", "show": "Mostrar", "clear": "Limpiar",
+                "front": "Al frente", "middle": "Capa media", "back": "Al fondo",
+                "undo": "Deshacer", "redo": "Rehacer", "hide": "Ocultar", "show": "Mostrar", "clear": "Limpiar",
                 "exit": "Salir",
                 "width": "Grosor: {}", "size": "Tamaño: {}",
                 "line": "Línea", "rect": "Rectángulo", "ellipse": "Elipse", "arrow": "Flecha",
                 "next_lang": "PT", "current_lang": "ES", "donate_tip": "Apoyar en DonationAlerts",
-                "cursor_tip": "Cambiar a cursor: clic izq + der",
-                "color_tip": "Clic izq: color botón izquierdo\nClic der: color botón derecho",
+                "cursor_tip": "LMB+RMB - cambiar a cursor desde todos los modos\nRMB - seleccionar puntero láser",
+                "pen_tip": "LMB - modo dibujo\nRMB - seleccionar tamaño de línea",
+                "shape_tip": "LMB - dibujar formas\nRMB - seleccionar forma",
+                "text_tip": "LMB - insertar texto\nRMB - seleccionar fuente y tamaño",
+                "eraser_tip": "LMB - borrar líneas, RMB - eliminar objetos\nRMB - seleccionar tamaño de borrador",
+                "image_tip": "LMB - insertar desde archivo\nRMB - seleccionar modo de inserción",
+                "select_tip": "LMB - gestionar texto e imágenes insertados\nCtrl + LMB - copiar objeto seleccionado\nRueda del ratón - rotar objeto\nCtrl + rueda del ratón - aumentar/disminuir objeto",
+                "lang_tip": "LMB - siguiente idioma\nRMB - seleccionar idioma",
+                "theme_tip": "LMB - ocultar/mostrar texto\nRMB - seleccionar tema oscuro/claro",
+                "ai_tip": "Al usar LMB - recorta un área rectangular\nAl usar RMB - recorta un área arbitraria",
+                "color_tip": "LMB - seleccionar color del botón izquierdo\nRMB - seleccionar color del botón derecho",
                 "paste_img": "Pegar del portapapeles", "paste_chart_img": "Pegar sin fondo",
                 "insert_img_from_file": "Insertar desde archivo", "paste_img_no_bg": "Insertar sin fondo",
-                "insert_folder_wheel": "Insertar carpeta (rueda del ratón)",
-                "insert_folder_no_bg_wheel": "Insertar carpeta sin fondo (rueda del ratón)",
+                "insert_folder_wheel": "Insertar carpeta (Shift + rueda del ratón)",
+                "insert_folder_no_bg_wheel": "Insertar carpeta sin fondo (Shift + rueda del ratón)",
                 "no_img_clip": "No hay imagen en el portapapeles.",
                 "no_img_folder": "No se encontraron imágenes en la carpeta.",
                 "theme_light": "Tema claro", "theme_dark": "Tema oscuro",
-                "eraser_tip": "Clic izq: borrar\nClic der: eliminar línea completa",
                 "normal_cursor": "Cursor normal", "laser_cursor": "Puntero láser",
                 "laser_tip": "El cursor se convierte en un punto rojo.\n(Los clics se bloquean hasta volver al cursor normal)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Guardar como...", "remove_bg": "Quitar fondo",
                 "font": "Fuente", "remove_clicked_color": "Quitar color seleccionado",
-                "screenshot_tip": "Clic izq: copiar y abrir archivo\nClic der: solo copiar",
-                "rotate": "Rotar / Tamaño"
+                "screenshot_tip": "Al crear con LMB - copiar al portapapeles y abrir archivo\nAl crear con RMB - solo copiar al portapapeles",
+                "rotate": "Rotar / Tamaño", "ai": "Corte Inteligente"
             },
             "PT": {
                 "cursor": "Cursor", "pen": "Caneta", "shape": "Formas", "text": "Texto",
                 "eraser": "Borracha", "color": "Cor", "image": "Imagem", "select": "Selecionar",
                 "screenshot": "Captura", "delete": "Excluir",
-                "front": "Para frente", "back": "Para trás",
-                "undo": "Desfazer", "hide": "Ocultar", "show": "Mostrar", "clear": "Limpar",
+                "front": "Para frente", "middle": "Camada média", "back": "Para trás",
+                "undo": "Desfazer", "redo": "Refazer", "hide": "Ocultar", "show": "Mostrar", "clear": "Limpar",
                 "exit": "Sair",
                 "width": "Espessura: {}", "size": "Tamanho: {}",
                 "line": "Linha", "rect": "Retângulo", "ellipse": "Elipse", "arrow": "Seta",
                 "next_lang": "FR", "current_lang": "PT", "donate_tip": "Apoiar no DonationAlerts",
-                "cursor_tip": "Mudar para cursor: clique esq + dir",
-                "color_tip": "Clique esq: cor do botão esquerdo\nClique dir: cor do botão direito",
+                "cursor_tip": "LMB+RMB - mudar para cursor de todos os modos\nRMB - selecionar ponteiro laser",
+                "pen_tip": "LMB - modo desenho\nRMB - selecionar tamanho da linha",
+                "shape_tip": "LMB - desenhar formas\nRMB - selecionar forma",
+                "text_tip": "LMB - inserir texto\nRMB - selecionar fonte e tamanho",
+                "eraser_tip": "LMB - apagar linhas, RMB - excluir objetos\nRMB - selecionar tamanho da borracha",
+                "image_tip": "LMB - inserir do arquivo\nRMB - selecionar modo de inserção",
+                "select_tip": "LMB - gerenciar texto e imagens inseridos\nCtrl + LMB - copiar objeto selecionado\nRoda do mouse - girar objeto\nCtrl + roda do mouse - aumentar/diminuir objeto",
+                "lang_tip": "LMB - próximo idioma\nRMB - selecionar idioma",
+                "theme_tip": "LMB - ocultar/mostrar texto\nRMB - selecionar tema escuro/claro",
+                "ai_tip": "Ao usar LMB - recorta uma área retangular\nAo usar RMB - recorta uma área arbitrária",
+                "color_tip": "LMB - selecionar cor do botão esquerdo\nRMB - selecionar cor do botão direito",
                 "paste_img": "Colar da área de transferência", "paste_chart_img": "Colar sem fundo",
                 "insert_img_from_file": "Inserir do arquivo", "paste_img_no_bg": "Inserir sem fundo",
-                "insert_folder_wheel": "Inserir pasta (roda do mouse)",
-                "insert_folder_no_bg_wheel": "Inserir pasta sem fundo (roda do mouse)",
+                "insert_folder_wheel": "Inserir pasta (Shift + roda do mouse)",
+                "insert_folder_no_bg_wheel": "Inserir pasta sem fundo (Shift + roda do mouse)",
                 "no_img_clip": "Nenhuma imagem na área de transferência.",
                 "no_img_folder": "Nenhuma imagem encontrada na pasta.",
                 "theme_light": "Tema claro", "theme_dark": "Tema escuro",
-                "eraser_tip": "Clique esq: apagar\nClique dir: excluir linha inteira",
                 "normal_cursor": "Cursor normal", "laser_cursor": "Ponteiro laser",
                 "laser_tip": "O cursor vira um ponto vermelho.\n(Cliques bloqueados até voltar ao cursor normal)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Salvar como...", "remove_bg": "Remover fundo",
                 "font": "Fonte", "remove_clicked_color": "Remover cor selecionada",
-                "screenshot_tip": "Clique esq: copiar e abrir arquivo\nClique dir: apenas copiar",
-                "rotate": "Girar / Tamanho"
+                "screenshot_tip": "Ao criar com LMB - copiar para a área de transferência e abrir arquivo\nAo criar com RMB - apenas copiar para a área de transferência",
+                "rotate": "Girar / Tamanho", "ai": "Corte Inteligente"
             },
             "FR": {
                 "cursor": "Curseur", "pen": "Stylo", "shape": "Formes", "text": "Texte",
                 "eraser": "Gomme", "color": "Couleur", "image": "Image", "select": "Sélectionner",
                 "screenshot": "Capture", "delete": "Supprimer",
-                "front": "Premier plan", "back": "Arrière-plan",
-                "undo": "Annuler", "hide": "Masquer", "show": "Afficher", "clear": "Effacer",
+                "front": "Premier plan", "middle": "Plan moyen", "back": "Arrière-plan",
+                "undo": "Annuler", "redo": "Rétablir", "hide": "Masquer", "show": "Afficher", "clear": "Effacer",
                 "exit": "Quitter",
                 "width": "Épaisseur: {}", "size": "Taille: {}",
                 "line": "Ligne", "rect": "Rectangle", "ellipse": "Ellipse", "arrow": "Flèche",
                 "next_lang": "DE", "current_lang": "FR", "donate_tip": "Soutenir sur DonationAlerts",
-                "cursor_tip": "Passer au curseur: clic gauche + droit",
-                "color_tip": "Clic gauche: couleur bouton gauche\nClic droit: couleur bouton droit",
-                "paste_img": "Coller depuis le presse-papiers", "paste_chart_img": "Coller sans arrière-plan",
+                "cursor_tip": "LMB+RMB - passer au curseur depuis tous les modes\nRMB - sélectionner le pointeur laser",
+                "pen_tip": "LMB - mode dessin\nRMB - sélectionner la taille de la ligne",
+                "shape_tip": "LMB - dessiner des formes\nRMB - sélectionner la forme",
+                "text_tip": "LMB - insérer du texte\nRMB - sélectionner la police et la taille",
+                "eraser_tip": "LMB - effacer les lignes, RMB - supprimer des objets\nRMB - sélectionner la taille de la gomme",
+                "image_tip": "LMB - insérer à partir du fichier\nRMB - sélectionner le mode d'insertion",
+                "select_tip": "LMB - gérer le texte et les images insérés\nCtrl + LMB - copier l'objet sélectionné\nMolette de la souris - faire pivoter l'objet\nCtrl + molette de la souris - augmenter/diminuer l'objet",
+                "lang_tip": "LMB - langue suivante\nRMB - sélectionner la langue",
+                "theme_tip": "LMB - masquer/afficher le texte\nRMB - sélectionner le thème sombre/clair",
+                "ai_tip": "En utilisant LMB - découpe une zone rectangulaire\nEn utilisant RMB - découpe une zone arbitraire",
+                "color_tip": "LMB - sélectionner la couleur du bouton gauche\nRMB - sélectionner la couleur du bouton droit",
+                "paste_img": "Coller depuis le presse-papiens", "paste_chart_img": "Coller sans arrière-plan",
                 "insert_img_from_file": "Insérer depuis un fichier", "paste_img_no_bg": "Insérer sans arrière-plan",
-                "insert_folder_wheel": "Insérer un dossier (molette)",
-                "insert_folder_no_bg_wheel": "Insérer un dossier sans arrière-plan (molette)",
-                "no_img_clip": "Aucune image dans le presse-papiers.",
+                "insert_folder_wheel": "Insérer un dossier (Shift + molette)",
+                "insert_folder_no_bg_wheel": "Insérer un dossier sans arrière-plan (Shift + molette)",
+                "no_img_clip": "Aucune image dans le presse-papiens.",
                 "no_img_folder": "Aucune image trouvée dans le dossier.",
                 "theme_light": "Thème clair", "theme_dark": "Thème sombre",
-                "eraser_tip": "Clic gauche: effacer\nClic droit: supprimer la ligne entière",
                 "normal_cursor": "Curseur normal", "laser_cursor": "Pointeur laser",
                 "laser_tip": "Le curseur devient un point rouge.\n(Les clics sont bloqués jusqu'au retour au curseur normal)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Enregistrer sous...", "remove_bg": "Supprimer l'arrière-plan",
                 "font": "Police", "remove_clicked_color": "Supprimer la couleur sélectionnée",
-                "screenshot_tip": "Clic gauche: copier et ouvrir\nClic droit: copier uniquement",
-                "rotate": "Pivoter / Taille"
+                "screenshot_tip": "En créant avec LMB - copier dans le presse-papiens et ouvrir le fichier\nEn créant avec RMB - copier uniquement dans le presse-papiens",
+                "rotate": "Pivoter / Taille", "ai": "Découpe Intelligente"
             },
             "DE": {
                 "cursor": "Cursor", "pen": "Stift", "shape": "Formen", "text": "Text",
                 "eraser": "Radierer", "color": "Farbe", "image": "Bild", "select": "Auswählen",
                 "screenshot": "Screenshot", "delete": "Löschen",
-                "front": "In den Vordergrund", "back": "In den Hintergrund",
-                "undo": "Rückgängig", "hide": "Ausblenden", "show": "Anzeigen", "clear": "Leeren",
+                "front": "In den Vordergrund", "middle": "Mittlere Ebene", "back": "In den Hintergrund",
+                "undo": "Rückgängig", "redo": "Wiederholen", "hide": "Ausblenden", "show": "Anzeigen",
+                "clear": "Leeren",
                 "exit": "Beenden",
                 "width": "Breite: {}", "size": "Größe: {}",
                 "line": "Linie", "rect": "Rechteck", "ellipse": "Ellipse", "arrow": "Pfeil",
                 "next_lang": "IT", "current_lang": "DE", "donate_tip": "Auf DonationAlerts unterstützen",
-                "cursor_tip": "Zum Cursor wechseln: LMT + RMT",
-                "color_tip": "LMT: Farbe der linken Taste\nRMT: Farbe der rechten Taste",
+                "cursor_tip": "LMT+RMT - von allen Modi zum Cursor wechseln\nRMT - Laserpointer auswählen",
+                "pen_tip": "LMT - Zeichenmodus\nRMT - Liniengröße auswählen",
+                "shape_tip": "LMT - Formen zeichnen\nRMT - Form auswählen",
+                "text_tip": "LMT - Text einfügen\nRMT - Schriftart und Größe auswählen",
+                "eraser_tip": "LMT - Linien löschen, RMT - Objekte löschen\nRMT - Radiergröße auswählen",
+                "image_tip": "LMT - aus Datei einfügen\nRMT - Einfügemodus auswählen",
+                "select_tip": "LMT - eingefügten Text und Bilder verwalten\nStrg + LMT - ausgewähltes Objekt kopieren\nMausrad - Objekt drehen\nStrg + Mausrad - Objekt vergrößern/verkleinern",
+                "lang_tip": "LMT - nächste Sprache\nRMT - Sprache auswählen",
+                "theme_tip": "LMT - Text ausblenden/anzeigen\nRMT - dunkles/helles Thema auswählen",
+                "ai_tip": "Bei Verwendung von LMT - schneidet einen rechteckigen Bereich aus\nBei Verwendung von RMT - schneidet einen beliebigen Bereich aus",
+                "color_tip": "LMT - Farbe der linken Taste auswählen\nRMT - Farbe der rechten Taste auswählen",
                 "paste_img": "Aus Zwischenablage einfügen", "paste_chart_img": "Ohne Hintergrund einfügen",
                 "insert_img_from_file": "Aus Datei einfügen", "paste_img_no_bg": "Ohne Hintergrund einfügen",
-                "insert_folder_wheel": "Ordner einfügen (Mausrad)",
-                "insert_folder_no_bg_wheel": "Ordner ohne Hintergrund einfügen (Mausrad)",
+                "insert_folder_wheel": "Ordner einfügen (Shift + Mausrad)",
+                "insert_folder_no_bg_wheel": "Ordner ohne Hintergrund einfügen (Shift + Mausrad)",
                 "no_img_clip": "Kein Bild in der Zwischenablage.", "no_img_folder": "Keine Bilder im Ordner gefunden.",
                 "theme_light": "Helles Design", "theme_dark": "Dunkles Design",
-                "eraser_tip": "LMT: Radieren\nRMT: Ganze Linie löschen",
                 "normal_cursor": "Normaler Cursor", "laser_cursor": "Laserpointer",
                 "laser_tip": "Der Cursor wird zu einem roten Punkt.\n(Klicks sind blockiert, bis zum normalen Cursor zurückgekehrt wird)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Speichern unter...", "remove_bg": "Hintergrund entfernen",
                 "font": "Schriftart", "remove_clicked_color": "Ausgewählte Farbe entfernen",
-                "screenshot_tip": "LMT: Kopieren und Datei öffnen\nRMT: Nur kopieren",
-                "rotate": "Drehen / Größe"
+                "screenshot_tip": "Beim Erstellen mit LMT - in die Zwischenablage kopieren und Datei öffnen\nBeim Erstellen mit RMT - nur in die Zwischenablage kopieren",
+                "rotate": "Drehen / Größe", "ai": "Smarter Schnitt"
             },
             "IT": {
                 "cursor": "Cursore", "pen": "Penna", "shape": "Forme", "text": "Testo",
                 "eraser": "Gomma", "color": "Colore", "image": "Immagine", "select": "Seleziona",
                 "screenshot": "Screenshot", "delete": "Elimina",
-                "front": "In primo piano", "back": "In secondo piano",
-                "undo": "Annulla", "hide": "Nascondi", "show": "Mostra", "clear": "Cancella",
+                "front": "In primo piano", "middle": "Livello medio", "back": "In secondo piano",
+                "undo": "Annulla", "redo": "Ripeti", "hide": "Nascondi", "show": "Mostra", "clear": "Cancella",
                 "exit": "Esci",
                 "width": "Spessore: {}", "size": "Dimensione: {}",
                 "line": "Linea", "rect": "Rettangolo", "ellipse": "Ellisse", "arrow": "Freccia",
                 "next_lang": "عر", "current_lang": "IT", "donate_tip": "Supporta su DonationAlerts",
-                "cursor_tip": "Passa al cursore: clic sx + dx",
-                "color_tip": "Clic sx: colore pulsante sinistro\nClic dx: colore pulsante destro",
+                "cursor_tip": "LMB+RMB - passa al cursore da tutte le modalità\nRMB - seleziona puntatore laser",
+                "pen_tip": "LMB - modalità disegno\nRMB - seleziona dimensione linea",
+                "shape_tip": "LMB - disegna forme\nRMB - seleziona forma",
+                "text_tip": "LMB - inserisci testo\nRMB - seleziona font e dimensione",
+                "eraser_tip": "LMB - cancella linee, RMB - elimina oggetti\nRMB - seleziona dimensione gomma",
+                "image_tip": "LMB - inserisci da file\nRMB - seleziona modalità di inserimento",
+                "select_tip": "LMB - gestisci testo e immagini inserite\nCtrl + LMB - copia oggetto selezionato\nRotella del mouse - ruota oggetto\nCtrl + rotella del mouse - aumenta/diminuisci oggetto",
+                "lang_tip": "LMB - lingua successiva\nRMB - seleziona lingua",
+                "theme_tip": "LMB - nascondi/mostra testo\nRMB - seleziona tema scuro/chiaro",
+                "ai_tip": "Usando LMB - ritaglia un'area rettangolare\nUsando RMB - ritaglia un'area arbitraria",
+                "color_tip": "LMB - seleziona colore pulsante sinistro\nRMB - seleziona colore pulsante destro",
                 "paste_img": "Incolla dagli appunti", "paste_chart_img": "Incolla senza sfondo",
                 "insert_img_from_file": "Inserisci da file", "paste_img_no_bg": "Inserisci senza sfondo",
-                "insert_folder_wheel": "Inserisci cartella (rotella del mouse)",
-                "insert_folder_no_bg_wheel": "Inserisci cartella senza sfondo (rotella del mouse)",
+                "insert_folder_wheel": "Inserisci cartella (Shift + rotella del mouse)",
+                "insert_folder_no_bg_wheel": "Inserisci cartella senza sfondo (Shift + rotella del mouse)",
                 "no_img_clip": "Nessuna immagine negli appunti.",
                 "no_img_folder": "Nessuna immagine trovata nella cartella.",
                 "theme_light": "Tema chiaro", "theme_dark": "Tema scuro",
-                "eraser_tip": "Clic sx: cancella\nClic dx: elimina intera linea",
                 "normal_cursor": "Cursore normale", "laser_cursor": "Puntatore laser",
                 "laser_tip": "Il cursore diventa un punto rosso.\n(I clic sono bloccati fino al ritorno al cursore normale)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "Salva come...", "remove_bg": "Rimuovi sfondo",
                 "font": "Carattere", "remove_clicked_color": "Rimuovi colore selezionato",
-                "screenshot_tip": "Clic sx: copia e apri file\nClic dx: solo copia",
-                "rotate": "Ruota / Dimensione"
+                "screenshot_tip": "Creando con LMB - copia negli appunti e apri file\nCreando con RMB - copia solo negli appunti",
+                "rotate": "Ruota / Dimensione", "ai": "Taglio Intelligente"
             },
             "AR": {
                 "cursor": "المؤشر", "pen": "القلم", "shape": "الأشكال", "text": "النص",
                 "eraser": "الممحاة", "color": "اللون", "image": "الصورة", "select": "اختيار",
                 "screenshot": "لقطة شاشة", "delete": "حذف",
-                "front": "إلى الأمام", "back": "إلى الخلف",
-                "undo": "تراجع", "hide": "إخفاء", "show": "إظهار", "clear": "مسح",
+                "front": "إلى الأمام", "middle": "طبقة وسطى", "back": "إلى الخلف",
+                "undo": "تراجع", "redo": "إعادة", "hide": "إخفاء", "show": "إظهار", "clear": "مسح",
                 "exit": "خروج",
                 "width": "السمك: {}", "size": "الحجم: {}",
                 "line": "خط", "rect": "مستطيل", "ellipse": "قطع ناقص", "arrow": "سهم",
                 "next_lang": "हिं", "current_lang": "عر", "donate_tip": "الدعم على DonationAlerts",
-                "cursor_tip": "التبديل إلى المؤشر: زر أيسر + أيمن",
-                "color_tip": "زر أيسر: لون الزر الأيسر\nزر أيمن: لون الزر الأيمن",
+                "cursor_tip": "زر أيسر+أيمن - التبديل إلى المؤشر من جميع الأوضاع\nزر أيمن - اختيار مؤشر الليزر",
+                "pen_tip": "زر أيسر - وضع الرسم\nزر أيمن - اختيار حجم الخط",
+                "shape_tip": "زر أيسر - رسم أشكال\nزر أيمن - اختيار الشكل",
+                "text_tip": "زر أيسر - إدراج نص\nزر أيمن - اختيار الخط والحجم",
+                "eraser_tip": "زر أيسر - مسح الخطوط، زر أيمن - حذف الكائنات\nزر أيمن - اختيار حجم الممحاة",
+                "image_tip": "زر أيسر - إدراج من ملف\nزر أيمن - اختيار وضع الإدراج",
+                "select_tip": "زر أيسر - إدارة النص والصور المدرجة\nCtrl + زر أيسر - نسخ الكائن المحدد\nعجلة الفأرة - تدوير الكائن\nCtrl + عجلة الفأرة - تكبير/تصغير الكائن",
+                "lang_tip": "زر أيسر - اللغة التالية\nزر أيمن - اختيار اللغة",
+                "theme_tip": "زر أيسر - إخفاء/إظهار النص\nزر أيمن - اختيار السمة الداكنة/الفاتحة",
+                "ai_tip": "عند استخدام زر أيسر - يقطع مساحة مستطيلة\nعند استخدام زر أيمن - يقطع مساحة عشوائية",
+                "color_tip": "زر أيسر - اختيار لون الزر الأيسر\nزر أيمن - اختيار لون الزر الأيمن",
                 "paste_img": "لصق من الحافظة", "paste_chart_img": "لصق بدون خلفية",
                 "insert_img_from_file": "إدراج من ملف", "paste_img_no_bg": "إدراج بدون خلفية",
-                "insert_folder_wheel": "إدراج مجلد (عجلة الفأرة)",
-                "insert_folder_no_bg_wheel": "إدراج مجلد بدون خلفية (عجلة الفأرة)",
+                "insert_folder_wheel": "إدراج مجلد (Shift + عجلة الفأرة)",
+                "insert_folder_no_bg_wheel": "إدراج مجلد بدون خلفية (Shift + عجلة الفأرة)",
                 "no_img_clip": "لا توجد صورة في الحافظة.", "no_img_folder": "لم يتم العثور على صور في المجلد.",
                 "theme_light": "مظهر فاتح", "theme_dark": "مظهر داكن",
-                "eraser_tip": "زر أيسر: مسح\nزر أيمن: حذف الخط بالكامل",
                 "normal_cursor": "مؤشر عادي", "laser_cursor": "مؤشر ليزر",
                 "laser_tip": "يتحول المؤشر إلى نقطة حمراء.\n(النقرات محظورة حتى العودة للمؤشر العادي)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "حفظ باسم...", "remove_bg": "إزالة الخلفية",
                 "font": "الخط", "remove_clicked_color": "إزالة اللون المحدد",
-                "screenshot_tip": "زر أيسر: نسخ وفتح الملف\nزر أيمن: نسخ فقط",
-                "rotate": "تدوير / حجم"
+                "screenshot_tip": "عند الإنشاء بزر أيسر - نسخ إلى الحافظة وفتح الملف\nعند الإنشاء بزر أيمن - نسخ إلى الحافظة فقط",
+                "rotate": "تدوير / حجم", "ai": "قص ذكي"
             },
             "HI": {
                 "cursor": "कर्सर", "pen": "पेन", "shape": "आकार", "text": "पाठ",
                 "eraser": "इरेज़र", "color": "रंग", "image": "छवि", "select": "चयन",
                 "screenshot": "स्क्रीनशॉट", "delete": "हटाएं",
-                "front": "सामने लाएं", "back": "पीछे भेजें",
-                "undo": "पूर्ववत", "hide": "छिपाएं", "show": "दिखाएं", "clear": "साफ़ करें",
+                "front": "सामने लाएं", "middle": "मध्य परत", "back": "पीछे भेजें",
+                "undo": "पूर्ववत", "redo": "पुनः करें", "hide": "छिपाएं", "show": "दिखाएं", "clear": "साफ़ करें",
                 "exit": "बाहर निकलें",
                 "width": "मोटाई: {}", "size": "आकार: {}",
                 "line": "रेखा", "rect": "आयत", "ellipse": "दीर्घवृत्त", "arrow": "तीर",
                 "next_lang": "日", "current_lang": "हिं", "donate_tip": "DonationAlerts पर समर्थन करें",
-                "cursor_tip": "कर्सर पर स्विच: बायां + दायां क्लिक",
-                "color_tip": "बायां क्लिक: बाएं बटन का रंग\nदायां क्लिक: दाएं बटन का रंग",
+                "cursor_tip": "बायां+दायां - सभी मोड से कर्सर पर स्विच करें\nदायां - लेज़र पॉइंटर चुनें",
+                "pen_tip": "बायां - ड्राइंग मोड\nदायां - लाइन का आकार चुनें",
+                "shape_tip": "बायां - आकार बनाएं\nदायां - आकार चुनें",
+                "text_tip": "बायां - टेक्स्ट डालें\nदायां - फ़ॉन्ट और आकार चुनें",
+                "eraser_tip": "बायां - लाइनें मिटाएं, दायां - वस्तुएं हटाएं\nदायां - इरेज़र का आकार चुनें",
+                "image_tip": "बायां - फ़ाइल से डालें\nदायां - इंसर्शन मोड चुनें",
+                "select_tip": "बायां - डाले गए टेक्स्ट और चित्र प्रबंधित करें\nCtrl + बायां - चयनित वस्तु कॉपी करें\nमाउस व्हील - वस्तु घुमाएं\nCtrl + माउस व्हील - वस्तु बढ़ाएं/घटाएं",
+                "lang_tip": "बायां - अगली भाषा\nदायां - भाषा चुनें",
+                "theme_tip": "बायां - टेक्स्ट छिपाएं/दिखाएं\nदायां - डार्क/लाइट थीम चुनें",
+                "ai_tip": "बायां का उपयोग करते समय - एक आयताकार क्षेत्र काटता है\nदायां का उपयोग करते समय - एक मनमाना क्षेत्र काटता है",
+                "color_tip": "बायां - बाएं बटन का रंग चुनें\nदायां - दाएं बटन का रंग चुनें",
                 "paste_img": "क्लिपबोर्ड से चिपकाएं", "paste_chart_img": "बिना पृष्ठभूमि चिपकाएं",
                 "insert_img_from_file": "फ़ाइल से डालें", "paste_img_no_bg": "बिना पृष्ठभूमि डालें",
-                "insert_folder_wheel": "फ़ोल्डर डालें (माउस व्हील)",
-                "insert_folder_no_bg_wheel": "बिना पृष्ठभूमि फ़ोल्डर डालें (माउस व्हील)",
+                "insert_folder_wheel": "फ़ोल्डर डालें (Shift + माउस व्हील)",
+                "insert_folder_no_bg_wheel": "बिना पृष्ठभूमि फ़ोल्डर डालें (Shift + माउस व्हील)",
                 "no_img_clip": "क्लिपबोर्ड में कोई छवि नहीं है।", "no_img_folder": "फ़ोल्डर में कोई छवि नहीं मिली।",
                 "theme_light": "हल्की थीम", "theme_dark": "गहरी थीम",
-                "eraser_tip": "बायां क्लिक: मिटाएं\nदायां क्लिक: पूरी रेखा हटाएं",
                 "normal_cursor": "सामान्य कर्सर", "laser_cursor": "लेज़र पॉइंटर",
                 "laser_tip": "कर्सर लाल बिंदु बन जाता है।\n(सामान्य कर्सर पर लौटने तक क्लिक अवरुद्ध हैं)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "इस रूप में सहेजें...", "remove_bg": "पृष्ठभूमि हटाएं",
                 "font": "फ़ॉन्ट", "remove_clicked_color": "चयनित रंग हटाएं",
-                "screenshot_tip": "बायां क्लिक: कॉपी और फ़ाइल खोलें\nदायां क्लिक: केवल कॉपी",
-                "rotate": "घुमाएं / आकार"
+                "screenshot_tip": "बायां क्लिक से बनाते समय - क्लिपबोर्ड पर कॉपी करें और फ़ाइल खोलें\nदायां क्लिक से बनाते समय - केवल क्लिपबोर्ड पर कॉपी करें",
+                "rotate": "घुमाएं / आकार", "ai": "स्मार्ट कट"
             },
             "JA": {
                 "cursor": "カーソル", "pen": "ペン", "shape": "図形", "text": "テキスト",
                 "eraser": "消しゴム", "color": "色", "image": "画像", "select": "選択",
                 "screenshot": "スクリーンショット", "delete": "削除",
-                "front": "前面へ", "back": "背面へ",
-                "undo": "元に戻す", "hide": "非表示", "show": "表示", "clear": "クリア",
+                "front": "前面へ", "middle": "中間層", "back": "背面へ",
+                "undo": "元に戻す", "redo": "やり直し", "hide": "非表示", "show": "表示", "clear": "クリア",
                 "exit": "終了",
                 "width": "太さ: {}", "size": "サイズ: {}",
                 "line": "直線", "rect": "四角形", "ellipse": "楕円", "arrow": "矢印",
                 "next_lang": "한", "current_lang": "日", "donate_tip": "DonationAlertsで支援",
-                "cursor_tip": "カーソルに切替: 左クリック + 右クリック",
-                "color_tip": "左クリック: 左ボタンの色\n右クリック: 右ボタンの色",
-                "paste_img": "クリップボードから貼付", "paste_chart_img": "背景なしで貼付",
+                "cursor_tip": "左+右クリック - すべてのモードからカーソルに切替\n右クリック - レーザーポインター選択",
+                "pen_tip": "左クリック - 描画モード\n右クリック - 線のサイズ選択",
+                "shape_tip": "左クリック - 図形描画\n右クリック - 図形選択",
+                "text_tip": "左クリック - テキスト挿入\n右クリック - フォントとサイズ選択",
+                "eraser_tip": "左クリック - 線を消去、右クリック - オブジェクト削除\n右クリック - 消しゴムのサイズ選択",
+                "image_tip": "左クリック - ファイルから挿入\n右クリック - 挿入モード選択",
+                "select_tip": "左クリック - 挿入したテキストと画像を管理\nCtrl + 左クリック - 選択したオブジェクトをコピー\nマウスホイール - オブジェクトを回転\nCtrl + マウスホイール - オブジェクトを拡大/縮小",
+                "lang_tip": "左クリック - 次の言語\n右クリック - 言語選択",
+                "theme_tip": "左クリック - テキストを隠す/表示する\n右クリック - ダーク/ライトテーマ選択",
+                "ai_tip": "左クリック使用時 - 長方形の領域を切り取ります\n右クリック使用時 - 任意の領域を切り取ります",
+                "color_tip": "左クリック - 左ボタンの色を選択\n右クリック - 右ボタンの色を選択",
+                "paste_img": "クリップボードから貼付", "paste_chart_img": "背景なしで貴付",
                 "insert_img_from_file": "ファイルから挿入", "paste_img_no_bg": "背景なしで挿入",
-                "insert_folder_wheel": "フォルダを挿入 (マウスホイール)",
-                "insert_folder_no_bg_wheel": "背景なしフォルダを挿入 (マウスホイール)",
+                "insert_folder_wheel": "フォルダを挿入 (Shift + マウスホイール)",
+                "insert_folder_no_bg_wheel": "背景なしフォルダを挿入 (Shift + マウスホイール)",
                 "no_img_clip": "クリップボードに画像がありません。", "no_img_folder": "フォルダに画像が見つかりません。",
                 "theme_light": "ライトテーマ", "theme_dark": "ダークテーマ",
-                "eraser_tip": "左クリック: 消去\n右クリック: ライン全体を削除",
                 "normal_cursor": "通常カーソル", "laser_cursor": "レーザーポインター",
                 "laser_tip": "カーソルが赤い点になります。\n(通常カーソルに戻るまでクリックは無効)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "名前を付けて保存...", "remove_bg": "背景を削除",
                 "font": "フォント", "remove_clicked_color": "選択した色を削除",
-                "screenshot_tip": "左クリック: コピーしてファイルを開く\n右クリック: コピーのみ",
-                "rotate": "回転 / サイズ"
+                "screenshot_tip": "左クリックで作成時 - クリップボードにコピーしてファイルを開く\n右クリックで作成時 - クリップボードにのみコピー",
+                "rotate": "回転 / サイズ", "ai": "スマートカット"
             },
             "KO": {
                 "cursor": "커서", "pen": "펜", "shape": "도형", "text": "텍스트",
                 "eraser": "지우개", "color": "색상", "image": "이미지", "select": "선택",
                 "screenshot": "스크린샷", "delete": "삭제",
-                "front": "맨 앞으로", "back": "맨 뒤로",
-                "undo": "실행 취소", "hide": "숨기기", "show": "표시", "clear": "지우기",
+                "front": "맨 앞으로", "middle": "중간 레이어", "back": "맨 뒤로",
+                "undo": "실행 취소", "redo": "다시 실행", "hide": "숨기기", "show": "표시", "clear": "지우기",
                 "exit": "종료",
                 "width": "두께: {}", "size": "크기: {}",
                 "line": "직선", "rect": "직사각형", "ellipse": "타원", "arrow": "화살표",
                 "next_lang": "EN", "current_lang": "한", "donate_tip": "DonationAlerts에서 후원",
-                "cursor_tip": "커서로 전환: 왼쪽 + 오른쪽 클릭",
-                "color_tip": "왼쪽 클릭: 왼쪽 버튼 색상\n오른쪽 클릭: 오른쪽 버튼 색상",
+                "cursor_tip": "좌+우클릭 - 모든 모드에서 커서로 전환\n우클릭 - 레이저 포인터 선택",
+                "pen_tip": "좌클릭 - 그리기 모드\n우클릭 - 선 크기 선택",
+                "shape_tip": "좌클릭 - 도형 그리기\n우클릭 - 도형 선택",
+                "text_tip": "좌클릭 - 텍스트 삽入\n우클릭 - 글꼴 및 크기 선택",
+                "eraser_tip": "좌클릭 - 선 지우기, 우클릭 - 객체 삭제\n우클릭 - 지우개 크기 선택",
+                "image_tip": "좌클릭 - 파일에서 삽入\n우클릭 - 삽入 모드 선택",
+                "select_tip": "좌클릭 - 삽入된 텍스트 및 그림 관리\nCtrl + 좌클릭 - 선택한 객체 복사\n마우스 휠 - 객체 회전\nCtrl + 마우스 휠 - 객체 확대/축소",
+                "lang_tip": "좌클릭 - 다음 언어\n우클릭 - 언어 선택",
+                "theme_tip": "좌클릭 - 텍스트 숨기기/표시\n우클릭 - 다크/라이트 테마 선택",
+                "ai_tip": "좌클릭 사용 시 - 사각형 영역을 잘라냅니다\n우클릭 사용 시 - 임의의 영역을 잘라냅니다",
+                "color_tip": "좌클릭 - 왼쪽 버튼 색상 선택\n우클릭 - 오른쪽 버튼 색상 선택",
                 "paste_img": "클립보드에서 붙여넣기", "paste_chart_img": "배경 없이 붙여넣기",
-                "insert_img_from_file": "파일에서 삽입", "paste_img_no_bg": "배경 없이 삽입",
-                "insert_folder_wheel": "폴더 삽입 (마우스 휠)",
-                "insert_folder_no_bg_wheel": "배경 없이 폴더 삽입 (마우스 휠)",
+                "insert_img_from_file": "파일에서 삽入", "paste_img_no_bg": "배경 없이 삽入",
+                "insert_folder_wheel": "폴더 삽入 (Shift + 마우스 휠)",
+                "insert_folder_no_bg_wheel": "배경 없이 폴더 삽入 (Shift + 마우스 휠)",
                 "no_img_clip": "클립보드에 이미지가 없습니다.", "no_img_folder": "폴더에 이미지가 없습니다.",
                 "theme_light": "라이트 테마", "theme_dark": "다크 테마",
-                "eraser_tip": "왼쪽 클릭: 지우기\n오른쪽 클릭: 전체 선 삭제",
                 "normal_cursor": "일반 커서", "laser_cursor": "레이저 포인터",
                 "laser_tip": "커서가 빨간 점이 됩니다.\n(일반 커서로 돌아갈 때까지 클릭이 차단됩니다)",
                 "lang_ru": "Русский", "lang_en": "English", "lang_zh": "中文",
                 "save_as": "다른 이름으로 저장...", "remove_bg": "배경 제거",
                 "font": "글꼴", "remove_clicked_color": "선택한 색상 제거",
-                "screenshot_tip": "왼쪽 클릭: 복사 후 파일 열기\n오른쪽 클릭: 복사만",
-                "rotate": "회전 / 크기"
+                "screenshot_tip": "좌클릭으로 생성 시 - 클립보드에 복사하고 파일 열기\n우클릭으로 생성 시 - 클립보드에만 복사",
+                "rotate": "회전 / 크기", "ai": "스마트 컷"
             }
         }
         tr = self.translations[self.lang]
@@ -1468,7 +2041,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(self.toolbar_widget)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(0)
-        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)  # НОВОЕ: Не даем кнопкам съезжать в центр
+        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.setCentralWidget(self.toolbar_widget)
 
         self.all_buttons = []
@@ -1476,7 +2049,7 @@ class MainWindow(QMainWindow):
         top_v_layout = QVBoxLayout()
         top_v_layout.setContentsMargins(0, 0, 0, 4)
         top_v_layout.setSpacing(2)
-        top_v_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)  # НОВОЕ: Фиксируем верхний блок
+        top_v_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
         row1_layout = QHBoxLayout()
         row1_layout.setContentsMargins(0, 0, 0, 0)
@@ -1484,10 +2057,11 @@ class MainWindow(QMainWindow):
         row1_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
         self.btn_collapse = QToolButton(self.toolbar_widget)
-        self.btn_collapse.setIcon(get_svg_icon(ICON_COLLAPSE, self.icon_color))
-        self.btn_collapse.setIconSize(QSize(28, 28))
+        # Используем плоскую иконку для кнопки свернуть
+        self.btn_collapse.setIcon(get_flat_svg_icon(ICON_COLLAPSE, self.icon_color))
+        self.btn_collapse.setIconSize(QSize(24, 24))
         self.btn_collapse.setToolTip("Свернуть")
-        self.btn_collapse.setFixedSize(44, 36)
+        self.btn_collapse.setFixedSize(40, 32)
         self.btn_collapse.installEventFilter(self)
         self.drag_moved = False
         self.drag_start_pos = QPoint()
@@ -1495,8 +2069,8 @@ class MainWindow(QMainWindow):
 
         self.app_title = QLabel("Paste Pen", self.toolbar_widget)
         self.app_title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        self.app_title.setFixedHeight(36)
-        self.app_title.setToolTip("v.2.3")
+        self.app_title.setFixedHeight(32)
+        self.app_title.setToolTip("v.2.4")
         row1_layout.addWidget(self.app_title)
         top_v_layout.addLayout(row1_layout)
 
@@ -1507,30 +2081,32 @@ class MainWindow(QMainWindow):
 
         self.btn_toggle_text = QToolButton(self.toolbar_widget)
         self.btn_toggle_text.setIcon(get_svg_icon(ICON_TOGGLE_TEXT, self.icon_color))
-        self.btn_toggle_text.setIconSize(QSize(28, 28))
-        self.btn_toggle_text.setToolTip("Скрыть/Показать текст")
+        self.btn_toggle_text.setIconSize(QSize(24, 24))
+        self.btn_toggle_text.setToolTip(tr.get("theme_tip", "скрыть/показать название кнопок"))
         self.btn_toggle_text.clicked.connect(self.toggle_text_mode)
         self.btn_toggle_text.setContextMenuPolicy(Qt.CustomContextMenu)
         self.btn_toggle_text.customContextMenuRequested.connect(self.show_theme_menu)
-        self.btn_toggle_text.setFixedSize(44, 36)  # ИЗМЕНЕНО: Было 32
+        self.btn_toggle_text.setFixedSize(40, 32)
         row2_layout.addWidget(self.btn_toggle_text)
 
         self.btn_lang = QToolButton(self.toolbar_widget)
         self.btn_lang.setObjectName("LangButton")
-        self.btn_lang.setText(tr["current_lang"])
-        self.btn_lang.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.btn_lang.setIcon(get_svg_icon(LANG_ICONS_SVG.get(self.lang, LANG_ICONS_SVG["EN"]), self.icon_color))
+        self.btn_lang.setIconSize(QSize(24, 24))
+        self.btn_lang.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.btn_lang.setToolTip(tr.get("lang_tip", "ЛКМ - следующий язык,\nПКМ - выбор языка"))
         self.btn_lang.clicked.connect(self.toggle_language)
         self.btn_lang.setContextMenuPolicy(Qt.CustomContextMenu)
         self.btn_lang.customContextMenuRequested.connect(self.show_language_menu)
-        self.btn_lang.setFixedSize(44, 36)  # ИЗМЕНЕНО: Было 32
+        self.btn_lang.setFixedSize(40, 32)
         row2_layout.addWidget(self.btn_lang)
 
         self.btn_donate = QToolButton(self.toolbar_widget)
         self.btn_donate.setIcon(get_svg_icon(ICON_RUBLE, self.icon_color))
-        self.btn_donate.setIconSize(QSize(20, 20))
+        self.btn_donate.setIconSize(QSize(18, 18))
         self.btn_donate.setToolTip(tr["donate_tip"])
         self.btn_donate.clicked.connect(self.open_donate_link)
-        self.btn_donate.setFixedSize(36, 36)  # ИЗМЕНЕНО: Было 32
+        self.btn_donate.setFixedSize(32, 32)
         row2_layout.addWidget(self.btn_donate)
 
         top_v_layout.addLayout(row2_layout)
@@ -1548,29 +2124,29 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_cursor)
 
         self.btn_pen = self.create_tool_button(tr["pen"], ICON_PEN, lambda: self.overlay.set_tool("pen"))
+        self.btn_pen.setToolTip(tr.get("pen_tip", tr["width"]))
         self.setup_menu(self.btn_pen, [2, 5, 10, 20, 30, 50], self.set_pen_width, tr["width"])
         layout.addWidget(self.btn_pen)
 
         self.btn_shape = self.create_tool_button(tr["shape"], ICON_SHAPES, lambda: self.overlay.set_tool("shape"))
+        self.btn_shape.setToolTip(tr.get("shape_tip", tr["line"]))
         self.setup_menu(self.btn_shape, [(tr["line"], "line"), (tr["rect"], "rect"), (tr["ellipse"], "ellipse"),
                                          (tr["arrow"], "arrow")], self.set_shape_type)
         layout.addWidget(self.btn_shape)
 
         self.btn_text = self.create_tool_button(tr["text"], ICON_TEXT, lambda: self.overlay.set_tool("text"))
-
-        # 1. СНАЧАЛА КНОПКА ШРИФТА (в самом верху)
+        self.btn_text.setToolTip(tr.get("text_tip", tr["font"]))
         self.active_text_font_family = "Arial"
         self.act_font = QAction(f"{tr['font']}: {self.active_text_font_family}", self.btn_text)
         self.act_font.triggered.connect(self.choose_text_font)
         self.btn_text.addAction(self.act_font)
 
-        # 2. ПОТОМ РАЗМЕРЫ ШРИФТА (ниже)
         self.setup_menu(self.btn_text, [16, 24, 36, 48, 72, 100, 150, 200, 300], self.set_text_font_size, tr["size"])
         layout.addWidget(self.btn_text)
 
         self.btn_eraser = self.create_tool_button(tr["eraser"], ICON_ERASER, lambda: self.overlay.set_tool("eraser"))
-        self.setup_menu(self.btn_eraser, [10, 20, 40, 60, 100, 200], self.set_eraser_width, tr["width"])
         self.btn_eraser.setToolTip(tr["eraser_tip"])
+        self.setup_menu(self.btn_eraser, [10, 20, 40, 60, 100, 200], self.set_eraser_width, tr["width"])
         layout.addWidget(self.btn_eraser)
 
         self.btn_color = self.create_tool_button(tr["color"], ICON_COLOR, self.choose_left_color)
@@ -1580,6 +2156,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_color)
 
         self.btn_image = self.create_tool_button(tr["image"], ICON_IMAGE, self.load_image)
+        self.btn_image.setToolTip(tr.get("image_tip", ""))
         self.btn_image.setContextMenuPolicy(Qt.ActionsContextMenu)
         self.act_paste_img = QAction(tr["paste_img"], self.btn_image)
         self.act_paste_img.triggered.connect(self.paste_image_from_clipboard)
@@ -1602,6 +2179,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_image)
 
         self.btn_select = self.create_tool_button(tr["select"], ICON_SELECT, lambda: self.overlay.set_tool("select"))
+        self.btn_select.setToolTip(tr.get("select_tip", ""))
         layout.addWidget(self.btn_select)
 
         self.btn_screenshot = self.create_tool_button(tr["screenshot"], ICON_SCREENSHOT, self.set_screenshot_tool_open)
@@ -1609,6 +2187,10 @@ class MainWindow(QMainWindow):
         self.btn_screenshot.setContextMenuPolicy(Qt.CustomContextMenu)
         self.btn_screenshot.customContextMenuRequested.connect(self.set_screenshot_tool_silent)
         layout.addWidget(self.btn_screenshot)
+
+        self.btn_ai = self.create_tool_button(tr["ai"], ICON_AI, lambda: self.overlay.set_tool("ai"))
+        self.btn_ai.setToolTip(tr.get("ai_tip", ""))
+        layout.addWidget(self.btn_ai)
 
         self.btn_hide = self.create_tool_button(tr["hide"], ICON_HIDE, self.toggle_hide_mode)
         layout.addWidget(self.btn_hide)
@@ -1629,9 +2211,69 @@ class MainWindow(QMainWindow):
         self.move(20, screen.height() // 2 - self.height() // 2)
 
         self.lock_size()
-
-        # Гарантируем режим курсора при первом запуске
         self.set_normal_cursor()
+        self.force_topmost_all()
+        self.topmost_timer = QTimer(self)
+        self.topmost_timer.timeout.connect(self.force_topmost_all)
+        self.topmost_timer.start(5000)
+
+    def focusInEvent(self, event):
+        self.force_topmost_all()
+        super().focusInEvent(event)
+
+    def force_topmost_all(self):
+        HWND_TOPMOST = -1
+        SWP_NOSIZE = 0x0001
+        SWP_NOMOVE = 0x0002
+        SWP_NOACTIVATE = 0x0010
+        flags = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+
+        try:
+            foreground_hwnd = ctypes.windll.user32.GetForegroundWindow()
+        except:
+            foreground_hwnd = 0
+
+        for w in (self, self.overlay):
+            try:
+                hwnd = int(w.winId())
+                if hwnd == foreground_hwnd:
+                    continue
+                ctypes.windll.user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
+            except Exception:
+                pass
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.force_topmost_all()
+
+    def _qimage_to_numpy(self, qimg):
+        w, h = qimg.width(), qimg.height()
+        ptr = qimg.bits()
+        try:
+            ptr.setsize(qimg.byteCount())
+            arr = np.frombuffer(ptr, dtype=np.uint8).reshape((h, w, 4)).copy()
+        except Exception:
+            arr = np.zeros((h, w, 4), dtype=np.uint8)
+            for y in range(h):
+                for x in range(w):
+                    rgb = qimg.pixel(x, y)
+                    arr[y, x, 0] = (rgb >> 16) & 0xFF
+                    arr[y, x, 1] = (rgb >> 8) & 0xFF
+                    arr[y, x, 2] = rgb & 0xFF
+                    arr[y, x, 3] = (rgb >> 24) & 0xFF
+        return arr
+
+    def _apply_alpha_mask(self, arr, target_colors, threshold):
+        arr_float = arr[:, :, :3].astype(float)
+        min_distances = np.full(arr.shape[:2], np.inf)
+        for bg in target_colors:
+            dist = np.sqrt(np.sum((arr_float - bg) ** 2, axis=-1))
+            min_distances = np.minimum(min_distances, dist)
+
+        alpha = np.clip((min_distances - threshold / 2) / (threshold / 2) * 255, 0, 255).astype(np.uint8)
+        current_alpha = arr[:, :, 3]
+        arr[:, :, 3] = np.minimum(current_alpha, alpha)
+        return arr
 
     def remove_chart_background(self, pixmap, threshold=20):
         if pixmap.isNull(): return pixmap
@@ -1639,38 +2281,27 @@ class MainWindow(QMainWindow):
         w, h = qimg.width(), qimg.height()
         if w < 40 or h < 40: return pixmap
 
-        ptr = qimg.bits()
-        ptr.setsize(qimg.byteCount())
-        arr = np.frombuffer(ptr, dtype=np.uint8).reshape((h, w, 4)).copy()
+        arr = self._qimage_to_numpy(qimg)
 
         ps = 5
-        off = 5  # ОТСТУП ОТ КРАЕВ
+        off = 5
         c_x = w // 2
         c_y = h // 2
         half_ps = ps // 2
 
         patches = [
-            arr[off:off + ps, off:off + ps],  # 1. Верхний левый
-            arr[off:off + ps, c_x - half_ps:c_x - half_ps + ps],  # 2. Верхний центр
-            arr[off:off + ps, w - off - ps:w - off],  # 3. Верхний правый
-            arr[c_y - half_ps:c_y - half_ps + ps, off:off + ps],  # 4. Центр левый
-            arr[c_y - half_ps:c_y - half_ps + ps, w - off - ps:w - off],  # 5. Центр правый
-            arr[h - off - ps:h - off, off:off + ps],  # 6. Нижний левый
-            arr[h - off - ps:h - off, c_x - half_ps:c_x - half_ps + ps],  # 7. Нижний центр
-            arr[h - off - ps:h - off, w - off - ps:w - off]  # 8. Нижний правый
+            arr[off:off + ps, off:off + ps],
+            arr[off:off + ps, c_x - half_ps:c_x - half_ps + ps],
+            arr[off:off + ps, w - off - ps:w - off],
+            arr[c_y - half_ps:c_y - half_ps + ps, off:off + ps],
+            arr[c_y - half_ps:c_y - half_ps + ps, w - off - ps:w - off],
+            arr[h - off - ps:h - off, off:off + ps],
+            arr[h - off - ps:h - off, c_x - half_ps:c_x - half_ps + ps],
+            arr[h - off - ps:h - off, w - off - ps:w - off]
         ]
         bg_colors = [p[:, :, :3].mean(axis=(0, 1)) for p in patches]
 
-        arr_float = arr[:, :, :3].astype(float)
-        min_distances = np.full((h, w), np.inf)
-        for bg in bg_colors:
-            dist = np.sqrt(np.sum((arr_float - bg) ** 2, axis=-1))
-            min_distances = np.minimum(min_distances, dist)
-
-        alpha = np.clip((min_distances - threshold / 2) / (threshold / 2) * 255, 0, 255).astype(np.uint8)
-
-        current_alpha = arr[:, :, 3]
-        arr[:, :, 3] = np.minimum(current_alpha, alpha)
+        arr = self._apply_alpha_mask(arr, bg_colors, threshold)
 
         new_qimg = QImage(arr.data, w, h, 4 * w, QImage.Format_RGBA8888)
         new_pixmap = QPixmap.fromImage(new_qimg.copy())
@@ -1695,18 +2326,9 @@ class MainWindow(QMainWindow):
         qimg = pixmap.toImage().convertToFormat(QImage.Format_RGBA8888)
         w, h = qimg.width(), qimg.height()
 
-        ptr = qimg.bits()
-        ptr.setsize(qimg.byteCount())
-        arr = np.frombuffer(ptr, dtype=np.uint8).reshape((h, w, 4)).copy()
+        arr = self._qimage_to_numpy(qimg)
 
-        arr_float = arr[:, :, :3].astype(float)
-        bg = np.array(target_color, dtype=float)
-
-        distances = np.sqrt(np.sum((arr_float - bg) ** 2, axis=-1))
-        alpha = np.clip((distances - threshold / 2) / (threshold / 2) * 255, 0, 255).astype(np.uint8)
-
-        current_alpha = arr[:, :, 3]
-        arr[:, :, 3] = np.minimum(current_alpha, alpha)
+        arr = self._apply_alpha_mask(arr, [target_color], threshold)
 
         new_qimg = QImage(arr.data, w, h, 4 * w, QImage.Format_RGBA8888)
         new_pixmap = QPixmap.fromImage(new_qimg.copy())
@@ -1718,9 +2340,9 @@ class MainWindow(QMainWindow):
             self.setStyleSheet("""
                 QFrame#ToolbarContainer { background: #1e1e1e; border: 1px solid #0a0a0a; border-radius: 12px; }
                                 QToolButton {
-                    color: #e0e0e0; background: transparent; border: none; border-radius: 6px; padding: 4px 8px 4px 8px; font-size: 18px; font-family: Segoe UI; text-align: left;
+                    color: #e0e0e0; background: transparent; border: none; border-radius: 6px; padding: 2px 8px 2px 8px; font-size: 18px; font-family: Segoe UI; text-align: left;
                 }
-                QToolButton#LangButton { padding: 9px 8px 9px 8px; text-align: center; }
+                QToolButton#LangButton { padding: 6px 8px 6px 8px; text-align: center; }
                 QToolButton:hover { background: #333333; color: white; }
                 QToolButton:pressed { background: #404040; }
                 QToolButton::menu-indicator { image: none; }
@@ -1736,9 +2358,9 @@ class MainWindow(QMainWindow):
             self.setStyleSheet("""
                 QFrame#ToolbarContainer { background: #f0f0f0; border: 1px solid #cccccc; border-radius: 12px; }
                                 QToolButton {
-                    color: #222222; background: transparent; border: none; border-radius: 6px; padding: 4px 8px 4px 8px; font-size: 18px; font-family: Segoe UI; text-align: left;
+                    color: #222222; background: transparent; border: none; border-radius: 6px; padding: 2px 8px 2px 8px; font-size: 18px; font-family: Segoe UI; text-align: left;
                 }
-                QToolButton#LangButton { padding: 9px 8px 9px 8px; text-align: center; }
+                QToolButton#LangButton { padding: 6px 8px 6px 8px; text-align: center; }
                 QToolButton:hover { background: #dcdcdc; color: black; }
                 QToolButton:pressed { background: #d0d0d0; }
                 QToolButton::menu-indicator { image: none; }
@@ -1753,8 +2375,12 @@ class MainWindow(QMainWindow):
         for btn in self.all_buttons:
             svg = btn.property("svg")
             if svg: btn.setIcon(get_svg_icon(svg, self.icon_color))
-        self.btn_collapse.setIcon(get_svg_icon(ICON_COLLAPSE, self.icon_color))
+
+        # Кнопка свернуть использует плоскую иконку
+        self.btn_collapse.setIcon(get_flat_svg_icon(ICON_COLLAPSE, self.icon_color))
+
         self.btn_toggle_text.setIcon(get_svg_icon(ICON_TOGGLE_TEXT, self.icon_color))
+        self.btn_lang.setIcon(get_svg_icon(LANG_ICONS_SVG.get(self.lang, LANG_ICONS_SVG["EN"]), self.icon_color))
         if self.overlay.tool == "laser": self.btn_cursor.setIcon(get_svg_icon(ICON_LASER, self.icon_color))
         self.set_shape_type(self.overlay.shape_type)
         self.update_hide_button_state()
@@ -1815,14 +2441,10 @@ class MainWindow(QMainWindow):
 
     def calculate_fixed_width(self):
         if self.icons_only:
-            self.fixed_width = 56  # 44 (кнопка) + 12 (отступы)
+            self.fixed_width = 56
             return
-
-        # НОВОЕ: Принудительно пересчитываем layout, чтобы получить точный размер с учетом текста
         self.toolbar_widget.layout().invalidate()
         self.toolbar_widget.layout().activate()
-
-        # Берем идеальную ширину прямо из центрального виджета (он уже посчитал всё с учетом отступов)
         self.fixed_width = self.toolbar_widget.sizeHint().width()
 
     def create_tool_button(self, text, icon_svg, callback):
@@ -1830,10 +2452,10 @@ class MainWindow(QMainWindow):
         btn.setText("  " + text)
         btn.setProperty("svg", icon_svg)
         btn.setIcon(get_svg_icon(icon_svg, self.icon_color))
-        btn.setIconSize(QSize(24, 24))
+        btn.setIconSize(QSize(20, 20))
         btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         btn.setMinimumWidth(130)
-        btn.setFixedHeight(36)  # НОВОЕ: Фиксируем высоту с самого начала
+        btn.setFixedHeight(32)
         btn.clicked.connect(callback)
         self.all_buttons.append(btn)
         return btn
@@ -1844,7 +2466,8 @@ class MainWindow(QMainWindow):
             if isinstance(item, tuple):
                 name, val = item
             else:
-                name = text_format.format(item); val = item
+                name = text_format.format(item);
+                val = item
             act = QAction(name, btn)
             act.triggered.connect(lambda checked, v=val: callback(v))
             btn.addAction(act)
@@ -1861,59 +2484,79 @@ class MainWindow(QMainWindow):
 
     def choose_text_font(self, item_to_change=None):
         tr = self.translations[self.lang]
-
-        # Создаем отдельное окно
         dialog = QDialog(self)
         dialog.setWindowTitle(tr["font"])
         dialog.setModal(True)
         dialog.setMinimumWidth(300)
-
         dialog.setMinimumHeight(600)
 
         layout = QVBoxLayout(dialog)
-
-        # Создаем список
         list_widget = QListWidget()
         db = QFontDatabase()
-        families = db.families()
-        list_widget.addItems(families)
+        all_families = db.families()
+
+        recent_str = self.settings.value("recent_fonts", "", type=str)
+        recent = recent_str.split("|||") if recent_str else []
+        recent = [f for f in recent if f in all_families]
+        remaining = [f for f in all_families if f not in recent]
+
+        display_list = recent + ["———"] + remaining if recent else remaining
+        list_widget.addItems(display_list)
+
+        if recent:
+            sep_item = list_widget.item(len(recent))
+            sep_item.setFlags(Qt.NoItemFlags)
 
         app_font = QApplication.font()
         base_size = app_font.pointSize()
         if base_size < 1: base_size = 8
         large_size = int(base_size * 1.8)
 
-        for i in range(len(families)):
+        for i in range(len(display_list)):
             list_item = list_widget.item(i)
-            font = QFont(families[i])
+            font = QFont(display_list[i])
             font.setPointSize(large_size)
             list_item.setFont(font)
 
-        # Выделяем текущий шрифт
-        if self.active_text_font_family in families:
-            list_widget.setCurrentRow(families.index(self.active_text_font_family))
+        current_font = self.active_text_font_family if not item_to_change else item_to_change.get('font_family',
+                                                                                                  'Arial')
+        if current_font in display_list:
+            idx = display_list.index(current_font)
+            list_widget.setCurrentRow(idx)
             list_widget.scrollToItem(list_widget.currentItem())
 
         layout.addWidget(list_widget)
 
-        # Добавляем кнопки ОК и Отмена
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         layout.addWidget(button_box)
-
         button_box.accepted.connect(dialog.accept)
         button_box.rejected.connect(dialog.reject)
 
-        # Если нажали ОК — сохраняем выбор
         if dialog.exec_() == QDialog.Accepted:
             selected = list_widget.currentItem()
-            if selected:
-                self.active_text_font_family = selected.text()
-                self.act_font.setText(f"{tr['font']}: {self.active_text_font_family}")
+            if selected and selected.text() != "———":
+                sel_font = selected.text()
+
+                if sel_font in recent: recent.remove(sel_font)
+                recent.insert(0, sel_font)
+                self.settings.setValue("recent_fonts", "|||".join(recent[:5]))
 
                 if item_to_change:
-                    self.overlay.change_text_font(item_to_change, self.active_text_font_family)
+                    self.overlay.change_text_font(item_to_change, sel_font)
                 else:
+                    self.active_text_font_family = sel_font
+                    self.act_font.setText(f"{tr['font']}: {self.active_text_font_family}")
                     self.overlay.set_tool("text")
+
+        self.force_topmost_all()
+
+    def choose_text_color_for_item(self, item):
+        color = QColorDialog.getColor(item.get('color', Qt.white), self, "Цвет текста")
+        if color.isValid():
+            item['color'] = color
+            self.overlay.rebuild_canvas()
+            self.overlay.update()
+        self.force_topmost_all()
 
     def set_text_font_family(self, family):
         self.active_text_font_family = family
@@ -1948,8 +2591,11 @@ class MainWindow(QMainWindow):
         self.act_normal_cursor.setText(tr["normal_cursor"])
         self.act_laser_cursor.setText(tr["laser_cursor"])
         self.btn_pen.setText("  " + tr["pen"])
+        self.btn_pen.setToolTip(tr.get("pen_tip", tr["width"]))
         self.btn_shape.setText("  " + tr["shape"])
+        self.btn_shape.setToolTip(tr.get("shape_tip", tr["line"]))
         self.btn_text.setText("  " + tr["text"])
+        self.btn_text.setToolTip(tr.get("text_tip", tr["font"]))
         self.act_font.setText(f"{tr['font']}: {self.active_text_font_family}")
         self.btn_eraser.setText("  " + tr["eraser"])
         self.btn_eraser.setToolTip(tr["eraser_tip"])
@@ -1962,14 +2608,20 @@ class MainWindow(QMainWindow):
         self.act_load_folder.setText(tr["insert_folder_wheel"])
         self.act_load_folder_no_bg.setText(tr["insert_folder_no_bg_wheel"])
         self.btn_image.setText("  " + tr["image"])
+        self.btn_image.setToolTip(tr.get("image_tip", ""))
         self.btn_select.setText("  " + tr["select"])
+        self.btn_select.setToolTip(tr.get("select_tip", ""))
         self.btn_screenshot.setText("  " + tr["screenshot"])
         self.btn_screenshot.setToolTip(tr["screenshot_tip"])
+        self.btn_ai.setText("  " + tr["ai"])
+        self.btn_ai.setToolTip(tr.get("ai_tip", ""))
         self.btn_undo.setText("  " + tr["undo"])
 
         self.update_hide_button_state()
         self.btn_donate.setToolTip(tr["donate_tip"])
-        self.btn_lang.setText(tr["current_lang"])
+        self.btn_lang.setIcon(get_svg_icon(LANG_ICONS_SVG.get(self.lang, LANG_ICONS_SVG["EN"]), self.icon_color))
+        self.btn_lang.setToolTip(tr.get("lang_tip", "ЛКМ - следующий язык, ПКМ - выбор языка"))
+        self.btn_toggle_text.setToolTip(tr.get("theme_tip", "скрыть/показать текст"))
         self.btn_clear.setText("  " + tr["clear"])
         self.btn_exit.setText("  " + tr["exit"])
 
@@ -1996,7 +2648,6 @@ class MainWindow(QMainWindow):
         self.setup_menu(self.btn_shape, [(tr["line"], "line"), (tr["rect"], "rect"), (tr["ellipse"], "ellipse"),
                                          (tr["arrow"], "arrow")], self.set_shape_type)
 
-        # ИСПРАВЛЕНИЕ: Пересоздаем кнопку выбора шрифта перед добавлением размеров
         self.act_font = QAction(f"{tr['font']}: {self.active_text_font_family}", self.btn_text)
         self.act_font.triggered.connect(self.choose_text_font)
         self.btn_text.addAction(self.act_font)
@@ -2007,6 +2658,9 @@ class MainWindow(QMainWindow):
         self.calculate_fixed_width()
         if not self.is_collapsed: self.resize(self.fixed_width, self.sizeHint().height())
 
+        if self.overlay.tool == "ai":
+            self.overlay.update_ai_cursor()
+
     def toggle_text_mode(self):
         self.icons_only = not self.icons_only
         style = Qt.ToolButtonIconOnly if self.icons_only else Qt.ToolButtonTextBesideIcon
@@ -2016,12 +2670,12 @@ class MainWindow(QMainWindow):
             btn.setToolButtonStyle(style)
             if self.icons_only:
                 btn.setMinimumWidth(0);
-                btn.setFixedSize(44, 36)  # Изменили 32 на 36
+                btn.setFixedSize(40, 32)
             else:
                 btn.setMinimumSize(0, 0);
                 btn.setMaximumSize(16777215, 16777215);
                 btn.setMinimumWidth(130)
-                btn.setFixedHeight(36)  # НОВОЕ: Фиксируем высоту кнопок с текстом
+                btn.setFixedHeight(32)
 
         if self.icons_only:
             self.btn_donate.hide();
@@ -2032,12 +2686,10 @@ class MainWindow(QMainWindow):
             self.btn_lang.show();
             self.app_title.show()
 
-        # НОВОЕ: Заставляем Qt немедленно пересчитать размеры кнопок с учетом текста
         self.toolbar_widget.layout().invalidate()
         self.toolbar_widget.layout().activate()
 
         self.calculate_fixed_width()
-        # Используем текущую высоту, чтобы окно не дергалось по вертикали
         target_rect = QRect(start_rect.topLeft(), QSize(self.fixed_width, self.height()))
         self.animate_geometry(start_rect, target_rect)
 
@@ -2073,14 +2725,12 @@ class MainWindow(QMainWindow):
             target_rect = QRect(start_rect.left(), start_rect.top(), 56, 44)
         else:
             self.is_collapsed = False
-            # Показываем ВСЕ кнопки одновременно
             self.btn_toggle_text.show()
             if not self.icons_only:
                 self.btn_donate.show()
                 self.btn_lang.show()
                 self.app_title.show()
             for btn in self.all_buttons: btn.show()
-            # Принудительно пересчитываем layout ДО анимации
             self.toolbar_widget.layout().invalidate()
             self.toolbar_widget.layout().activate()
             target_rect = QRect(start_rect.left(), start_rect.top(), self.fixed_width, self.sizeHint().height())
@@ -2088,8 +2738,6 @@ class MainWindow(QMainWindow):
 
     def animate_geometry(self, start_rect, target_rect):
         if self.anim: self.anim.stop()
-
-        # Снимаем блокировку размеров, чтобы анимация могла работать
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
 
@@ -2098,13 +2746,10 @@ class MainWindow(QMainWindow):
         self.anim.setStartValue(start_rect)
         self.anim.setEndValue(target_rect)
         self.anim.setEasingCurve(QEasingCurve.OutCubic)
-        # НОВОЕ: По завершении анимации жестко фиксируем и ширину, и высоту
         self.anim.finished.connect(self.lock_size)
         self.anim.start()
 
     def lock_size(self):
-        # НОВОЕ: Жестко фиксируем текущие ширину и высоту,
-        # чтобы Qt не мог растянуть окно после анимации или при перетаскивании между мониторами
         self.setFixedSize(self.width(), self.height())
 
     def set_pen_width(self, width):
@@ -2161,20 +2806,17 @@ class MainWindow(QMainWindow):
         self.overlay.set_tool("screenshot")
 
     def eventFilter(self, obj, event):
-        # Логика перетаскивания для кнопки сворачивания (во всех режимах)
         if obj == self.btn_collapse:
             if event.type() == QEvent.MouseButtonPress:
                 if event.button() == Qt.LeftButton:
                     self.drag_pos = event.globalPos() - self.frameGeometry().topLeft()
                     self.drag_start_pos = event.pos()
                     self.drag_moved = False
-                    # Захватываем мышь, чтобы другие кнопки не срабатывали при перетаскивании
                     self.btn_collapse.grabMouse()
                     return True
 
             elif event.type() == QEvent.MouseMove:
                 if self.drag_pos is not None:
-                    # Если мышка сдвинулась больше чем на 5 пикселей — считаем это перетаскиванием
                     if (event.pos() - self.drag_start_pos).manhattanLength() > 5:
                         self.drag_moved = True
                     self.move(event.globalPos() - self.drag_pos)
@@ -2182,10 +2824,7 @@ class MainWindow(QMainWindow):
 
             elif event.type() == QEvent.MouseButtonRelease:
                 if event.button() == Qt.LeftButton:
-                    # Отпускаем мышь
                     self.btn_collapse.releaseMouse()
-
-                    # Если мы НЕ двигали мышь (это был просто клик) — разворачиваем/сворачиваем
                     if not self.drag_moved:
                         self.toggle_collapse()
                     self.drag_pos = None
@@ -2215,6 +2854,7 @@ class MainWindow(QMainWindow):
             self.overlay.set_tool("pen")
             self.raise_();
             self.activateWindow()
+        self.force_topmost_all()
 
     def choose_right_color(self, pos):
         color = QColorDialog.getColor(self.overlay.right_color, self, "Цвет правой кнопки мыши")
@@ -2223,17 +2863,21 @@ class MainWindow(QMainWindow):
             self.overlay.set_tool("pen")
             self.raise_();
             self.activateWindow()
+        self.force_topmost_all()
 
     def load_image(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Открыть изображение", "", "PNG Images (*.png)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Открыть изображение", "",
+                                                   "Images (*.png *.jpg *.jpeg *.bmp *.webp);;PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp);;WEBP (*.webp)")
         if file_path:
             pixmap = QPixmap(file_path)
             self.overlay.insert_pixmap(pixmap)
             self.raise_();
             self.activateWindow()
+        self.force_topmost_all()
 
     def load_image_no_bg(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Открыть изображение", "", "PNG Images (*.png)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Открыть изображение", "",
+                                                   "Images (*.png *.jpg *.jpeg *.bmp *.webp);;PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp);;WEBP (*.webp)")
         if file_path:
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
@@ -2241,6 +2885,7 @@ class MainWindow(QMainWindow):
                 self.overlay.insert_pixmap(processed_pixmap)
                 self.raise_();
                 self.activateWindow()
+        self.force_topmost_all()
 
     def load_folder_wheel(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Выберите папку с изображениями")
@@ -2251,6 +2896,7 @@ class MainWindow(QMainWindow):
             else:
                 self.raise_();
                 self.activateWindow()
+        self.force_topmost_all()
 
     def load_folder_no_bg_wheel(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Выберите папку с изображениями")
@@ -2261,6 +2907,7 @@ class MainWindow(QMainWindow):
             else:
                 self.raise_();
                 self.activateWindow()
+        self.force_topmost_all()
 
     def paste_image_from_clipboard(self):
         clipboard = QApplication.clipboard()
@@ -2287,15 +2934,26 @@ class MainWindow(QMainWindow):
 
     def save_image_as(self, pixmap):
         if pixmap.isNull(): return
-        file_path, _ = QFileDialog.getSaveFileName(self, "Сохранить как", "", "PNG Images (*.png)")
+        file_path, _ = QFileDialog.getSaveFileName(self, "Сохранить как", "",
+                                                   "PNG (*.png);;JPEG (*.jpg);;BMP (*.bmp);;WEBP (*.webp)")
         if file_path:
-            pixmap.save(file_path, "PNG")
+            ext = os.path.splitext(file_path)[1].lower()
+            fmt = "PNG" if ext in [".png", ""] else "JPG" if ext in [".jpg",
+                                                                     ".jpeg"] else "BMP" if ext == ".bmp" else "WEBP"
+            pixmap.save(file_path, fmt)
+        self.force_topmost_all()
 
     def close_app(self):
         self.is_closing = True
         self.overlay.close()
         self.tray_icon.hide()
         self.close()
+
+        global app_mutex
+        if app_mutex:
+            ctypes.windll.kernel32.CloseHandle(app_mutex)
+            app_mutex = None
+
         QApplication.quit()
 
     def closeEvent(self, event):
@@ -2305,9 +2963,11 @@ class MainWindow(QMainWindow):
             event.accept()
 
 
+app_mutex = None
+
 if __name__ == "__main__":
     mutex_name = "Paste_Pen_App_Single_Instance_Mutex"
-    mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
+    app_mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
     if ctypes.windll.kernel32.GetLastError() == 183:
         app = QApplication(sys.argv)
         QMessageBox.information(None, "Paste Pen", "Программа уже запущена.")
