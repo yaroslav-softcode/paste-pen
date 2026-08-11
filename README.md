@@ -3,7 +3,7 @@
 # Paste Pen
 
 **A portable app for drawing over the Windows screen, taking screenshots and inserting images with build in background removal.** An extended alternative to Epic Pen and gInk.  
-Perfectly suited for **Presentations**, **AI coding interactions**, and **Trading** with charts overlay.". No installation required, fully open-source app. 
+Perfectly suited for **AI coding interactions**, **Presentations** and **Trading** with charts overlay.". No installation required, fully open-source app. 
 
 💡 *The idea for this app came from my dissatisfaction with how existing alternatives handle inserting images over the desktop. I decided to eliminate this shortcoming in my own app and include all the features I personally needed. Especially, I wanted a feature for inserting charts with the ability to stretch them, transform and remove the background.*
 
@@ -19,6 +19,7 @@ Perfectly suited for **Presentations**, **AI coding interactions**, and **Tradin
 - **Smart vector eraser:** LMB erases pixels; RMB deletes an entire line or shape with a single click.
 
 ### Image Handling
+- Smart Cut: A tool for quickly editing desktop app and website designs to generate for AI code-fix tasks. It automatically fills the cropped area's background with a color sampled from the original screen, seamlessly blending it with your desktop.
 - Insert from a file or the clipboard: move, scale proportionally or freely, reshape.
 - **Background removal** for inserted images — available at any time after insertion. The result can be saved back to disk.
 - **Insert chart** feature with the ability to stretch them and remove the background.
@@ -81,9 +82,9 @@ MIT License — free to use for any purpose.
 # Paste Pen
 
 **Портативная программа для рисования поверх экрана Windows, создания скриншотов и вставки изображений cо встроенным удалением фона.** Расширенный аналог Epic Pen и gInk.  
-Идеальный инструмент для **Презентаций**, **Взаимодействия с ИИ** при написании кода и **Трейдинга** (наложение моделей на график)».  Приложение не требует установки, с открытым исходным кодом.
+Идеальный инструмент для **Взаимодействия с ИИ при написании кода** (функция Смарт-скрин), **Презентаций** и **Трейдинга** (наложение моделей на график)».  Приложение не требует установки, с открытым исходным кодом.
 
-💡 *Идея создать собственное приложение возникла из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Решил исправить это упущение и ещё добавить всё, что мне нужно. Особенно необходима была функция вставки графиков с возможностью их растягивания, трансформации и удаления фона.*
+💡 *Идея создать собственное приложение возникла из-за недовольства тем, как в существующих аналогах реализована вставка картинок поверх рабочего стола. Решил исправить это упущение и ещё добавить всё, что было нужно. Особенно необходима была функция вставки графиков с возможностью их растягивания, трансформации и удаления фона.*
 
 ---
 
@@ -97,6 +98,7 @@ MIT License — free to use for any purpose.
 - **Умный векторный ластик:** ЛКМ стирает пиксели, ПКМ — удаляет линию или фигуру целиком одним кликом.
 
 ### Работа с изображениями
+- Инструмент **«Смарт-скрин»** Функция для быстрой корректировки дизайна приложений и сайтов на рабочем столе для быстрой отправки ИИ задания на правку кода (автоматически заливает фон вырезанной области цветом, взятым с оригинального экрана, обеспечивая бесшовное слияние с рабочим столом).
 - Вставка из файла или буфера обмена: перемещение, пропорциональное и свободное масштабирование, изменение формы.
 - **Удаление фона** у вставленных изображений — в любой момент после вставки. Результат можно сохранить обратно на компьютер.
 - Функция **вставки графиков** с возможностью их растягивания (ЛКМ), трансформации (ПКМ) и удаления фона.
