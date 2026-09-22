@@ -1,5 +1,6 @@
 import sys
 import math
+import random
 import ctypes
 import webbrowser
 import os
@@ -15,6 +16,147 @@ from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QCursor, QPolygonF, QFo
     QPainterPath, QPainterPathStroker, QImage, QDesktopServices, QFontDatabase, QKeySequence, QLinearGradient
 from PyQt5.QtCore import Qt, QPoint, QRect, QRectF, QSize, QPointF, QPropertyAnimation, QEasingCurve, QSettings, QUrl, \
     QEvent, QTimer
+
+# --- GUID-константы питания (значения из Windows SDK).
+# v2.5 подписывалась на GUID 0272C0DA-3E02-4AEF-89B4-0F4A4A62C71F — это НЕ
+# GUID_MONITOR_POWER_ON, такого события Windows не присылает. ---
+class _GUID(ctypes.Structure):
+    _fields_ = [('Data1', ctypes.c_ulong),
+                ('Data2', ctypes.c_ushort),
+                ('Data3', ctypes.c_ushort),
+                ('Data4', ctypes.c_ubyte * 8)]
+
+
+def _guid(d1, d2, d3, tail):
+    return _GUID(d1, d2, d3, (ctypes.c_ubyte * 8)(*tail))
+
+
+# Гашение/включение экрана по таймеру простоя (главный рецидив «через 15 минут»).
+# Значение проверено эмпирически: при DPMS-цикле Windows присылает именно его
+# (PBT_POWERSETTINGCHANGE, Data=0 off / 1 on). Вариант с Data3=0x4A26 и хвостом
+# 8BC1-7E607926A3A, который гуляет по блогам, НЕ приходит вообще.
+GUID_MONITOR_POWER_ON = _guid(0x02731015, 0x4510, 0x4526,
+                              (0x99, 0xE6, 0xE5, 0xA1, 0x7E, 0xBD, 0x1A, 0xEA))
+# Состояние дисплея консоли (on/off/dim)
+GUID_CONSOLE_DISPLAY_STATE = _guid(0x6FE69556, 0x704A, 0x47A0,
+                                   (0x8F, 0x24, 0xC2, 0x8D, 0x93, 0x6F, 0xDA, 0x47))
+DEVICE_NOTIFY_WINDOW_HANDLE = 0
+
+# --- Win32: ЯВНЫЕ ПРОТОТИПЫ. Без argtypes ctypes усекает 64-битные HWND/HANDLE
+# до 32 бит: SetWindowPos(hwnd, HWND_TOPMOST=-1, ...) получает 0x00000000FFFFFFFF
+# вместо -1 и МОЛЧА возвращает 0. A/B-проверка на этой машине: ret=0 без
+# прототипов, ret=1 с прототипами. В v2.5 из-за этого не работал НИ ОДИН способ
+# вернуть «поверх всех» (таймер 2 с, агрессивное восстановление, фокус) —
+# оставался только Qt-хинт, и первый же DPMS-цикл ронял окна НАВСЕГДА. ---
+_u32 = ctypes.windll.user32
+_gdi32 = ctypes.windll.gdi32
+_k32 = ctypes.windll.kernel32
+
+_u32.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int,
+                              ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+_u32.SetWindowPos.restype = ctypes.c_int
+_u32.GetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_u32.GetWindowLongW.restype = ctypes.c_long
+_u32.GetDC.argtypes = [ctypes.c_void_p]
+_u32.GetDC.restype = ctypes.c_void_p
+_u32.ReleaseDC.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+_u32.ReleaseDC.restype = ctypes.c_int
+_gdi32.GetPixel.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_gdi32.GetPixel.restype = ctypes.c_uint
+_u32.RegisterPowerSettingNotification.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint]
+_u32.RegisterPowerSettingNotification.restype = ctypes.c_void_p
+_u32.UnregisterPowerSettingNotification.argtypes = [ctypes.c_void_p]
+_u32.UnregisterPowerSettingNotification.restype = ctypes.c_int
+_k32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+_k32.CreateMutexW.restype = ctypes.c_void_p
+_k32.CloseHandle.argtypes = [ctypes.c_void_p]
+_k32.CloseHandle.restype = ctypes.c_int
+
+_u32.GetTopWindow.argtypes = [ctypes.c_void_p]
+_u32.GetTopWindow.restype = ctypes.c_void_p
+_u32.GetWindow.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+_u32.GetWindow.restype = ctypes.c_void_p
+
+HWND_TOPMOST = ctypes.c_void_p(-1)
+HWND_NOTOPMOST = ctypes.c_void_p(-2)
+GW_HWNDNEXT = 2
+GWL_EXSTYLE = -20
+WS_EX_TOPMOST = 0x00000008
+WS_EX_TRANSPARENT = 0x00000020
+_u32.SetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_long]
+_u32.SetWindowLongW.restype = ctypes.c_long
+# NOSIZE|NOMOVE|NOACTIVATE|NOOWNERZORDER — фокус и активацию не трогаем
+SWP_TOPMOST_FLAGS = 0x0001 | 0x0002 | 0x0010 | 0x0020
+
+
+def _win_is_topmost(hwnd):
+    """Фактический признак «поверх всех» — по стилю окна, а не по надежде."""
+    return bool(_u32.GetWindowLongW(ctypes.c_void_p(hwnd), GWL_EXSTYLE) & WS_EX_TOPMOST)
+
+
+def _win_set_click_through(hwnd, on):
+    """Вкл/выкл «сквозную» для мыши прозрачность окна (WS_EX_TRANSPARENT).
+
+    Нужна, пока открыт модальный диалог: оверлей остаётся видимым (рисунки не
+    пропадают), но клики проходят сквозь него к диалогу и к другим окнам.
+    Флаг ставится только при необходимости — лишних SetWindowLongW нет.
+    """
+    style = _u32.GetWindowLongW(ctypes.c_void_p(hwnd), GWL_EXSTYLE)
+    flag_on = bool(style & WS_EX_TRANSPARENT)
+    if on and not flag_on:
+        return _u32.SetWindowLongW(ctypes.c_void_p(hwnd), GWL_EXSTYLE, style | WS_EX_TRANSPARENT)
+    if not on and flag_on:
+        return _u32.SetWindowLongW(ctypes.c_void_p(hwnd), GWL_EXSTYLE, style & ~WS_EX_TRANSPARENT)
+    return style
+
+
+def _z_index(hwnd):
+    """Позиция окна в z-order (0 = самое верхнее). Нужна, чтобы понимать, кто
+    кого перекрывает: у двух topmost-окон флаг одинаковый, а порядок разный."""
+    h = _u32.GetTopWindow(None)
+    i = 0
+    while h and i < 4000:
+        if int(h) == int(hwnd):
+            return i
+        h = _u32.GetWindow(h, GW_HWNDNEXT)
+        i += 1
+    return -1
+
+
+def _win_set_topmost(hwnd, toggle=False):
+    """Вернуть окно в topmost. toggle=True — снять и поставить заново.
+
+    Повторный SetWindowPos(HWND_TOPMOST) НЕ поднимает окно, если флаг уже стоит,
+    но DWM (после гашения экрана, смены мониторов) опустил его НИЖЕ других
+    topmost-окон. Снять+поставить поднимает окно на верх диапазона.
+    """
+    h = ctypes.c_void_p(hwnd)
+    if toggle:
+        _u32.SetWindowPos(h, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_TOPMOST_FLAGS)
+    return _u32.SetWindowPos(h, HWND_TOPMOST, 0, 0, 0, 0, SWP_TOPMOST_FLAGS)
+
+
+def _register_power_notifications(hwnd):
+    """Подписка на события питания для окна. PowrProf.PowerSettingRegisterNotification
+    на этой машине отдаёт 87 (ERROR_INVALID_PARAMETER) — работает user32-вариант."""
+    handles = []
+    for guid in (GUID_MONITOR_POWER_ON, GUID_CONSOLE_DISPLAY_STATE):
+        try:
+            h = _u32.RegisterPowerSettingNotification(
+                ctypes.c_void_p(hwnd), ctypes.byref(guid), DEVICE_NOTIFY_WINDOW_HANDLE)
+        except Exception:
+            h = None
+        if h:
+            handles.append(h)
+    return handles
+
+
+def _unregister_power_notifications(handles):
+    for h in handles or []:
+        try:
+            _u32.UnregisterPowerSettingNotification(ctypes.c_void_p(h))
+        except Exception:
+            pass
 
 
 # --- Функция для создания плоских иконок (без 3D) ---
@@ -122,6 +264,336 @@ LANG_ICONS_SVG = {
 }
 
 
+# ============================================================
+# Excalidraw-style rendering helpers (rough hand-drawn look)
+# ============================================================
+
+def _ex_rng(seed):
+    return random.Random(int(seed) & 0x7FFFFFFF)
+
+
+def _ex_smooth_pts(pts, passes=2):
+    """EMA-сглаживание центральной линии (без лага: ядро симметричное)."""
+    pts = [QPointF(p) for p in pts]
+    a = 0.55
+    for _ in range(passes):
+        n = len(pts)
+        if n < 3:
+            break
+        out = [pts[0]]
+        for i in range(1, n - 1):
+            out.append(QPointF(
+                pts[i - 1].x() * (1 - a) / 2 + pts[i].x() * a + pts[i + 1].x() * (1 - a) / 2,
+                pts[i - 1].y() * (1 - a) / 2 + pts[i].y() * a + pts[i + 1].y() * (1 - a) / 2))
+        out.append(pts[-1])
+        pts = out
+    return pts
+
+
+def _ex_resample(pts, step=2.5):
+    """Равномерная выборка по длине дуги — стабильная ширина вдоль штриха."""
+    if len(pts) < 2:
+        return list(pts)
+    out = [pts[0]]
+    prev = pts[0]
+    carry = 0.0
+    for i in range(1, len(pts)):
+        cur = pts[i]
+        seg = math.hypot(cur.x() - prev.x(), cur.y() - prev.y())
+        if seg <= 1e-9:
+            continue
+        d = carry
+        while d < seg:
+            t = d / seg
+            out.append(QPointF(prev.x() + (cur.x() - prev.x()) * t,
+                               prev.y() + (cur.y() - prev.y()) * t))
+            d += step
+        carry = d - seg
+        prev = cur
+    out.append(pts[-1])
+    return out
+
+
+def _ex_signed_area(raw_pts):
+    area = 0.0
+    cnt = len(raw_pts)
+    for i in range(cnt):
+        x1, y1 = raw_pts[i].x(), raw_pts[i].y()
+        x2, y2 = raw_pts[(i + 1) % cnt].x(), raw_pts[(i + 1) % cnt].y()
+        area += x1 * y2 - x2 * y1
+    return area
+
+
+def _ex_add_quad(path, quad_pts):
+    """Добавляет четырёхугольник с фиксированным обходом (нет вычитания в WindingFill)."""
+    if _ex_signed_area(quad_pts) < 0:
+        quad_pts = [quad_pts[3], quad_pts[2], quad_pts[1], quad_pts[0]]
+    path.addPolygon(QPolygonF(quad_pts))
+    path.closeSubpath()
+
+
+def _ex_add_circle(path, center, r):
+    """Круг как 14-угольник с тем же обходом, что и quads."""
+    ring = [QPointF(center.x() + r * math.cos(2 * math.pi * k / 14.0),
+                    center.y() + r * math.sin(2 * math.pi * k / 14.0)) for k in range(14)]
+    if _ex_signed_area(ring) < 0:
+        ring.reverse()
+    path.addPolygon(QPolygonF(ring))
+    path.closeSubpath()
+
+
+def _ex_pen_stroke_path(points, width, final=True):
+    """Контур штриха ПОСТОЯННОЙ ширины — концы не тоньше середины (тейпер убран).
+
+    Строится как набор выпуклых четырёхугольников + круги-наконечники,
+    объединённых через WindingFill — самопересечения корректно union-ятся.
+    """
+    # live и финал рендерятся ИДЕНТИЧНО — штрих не меняется после отпускания кнопки
+    pts = _ex_resample(_ex_smooth_pts(points, 2), 2.5)
+    n = len(pts)
+    path = QPainterPath()
+    if n == 0:
+        return path
+    if n == 1:
+        _ex_add_circle(path, pts[0], max(0.8, width * 0.55))
+        return path
+
+    arc = [0.0]
+    for i in range(1, n):
+        d = math.hypot(pts[i].x() - pts[i - 1].x(), pts[i].y() - pts[i - 1].y())
+        arc.append(arc[-1] + max(d, 0.0))
+    total = arc[-1]
+    if total < 1.0:
+        _ex_add_circle(path, pts[-1], max(0.8, width * 0.55))
+        return path
+
+    # ширина ПОСТОЯННАЯ по всей длине, включая концы (без тейпера)
+    hw = [width * 0.5] * n
+
+    path.setFillRule(Qt.WindingFill)
+    for i in range(n - 1):
+        if i == 0:
+            dx = pts[1].x() - pts[0].x()
+            dy = pts[1].y() - pts[0].y()
+        elif i == n - 2:
+            dx = pts[-1].x() - pts[-2].x()
+            dy = pts[-1].y() - pts[-2].y()
+        else:
+            dx = pts[i + 1].x() - pts[i - 1].x()
+            dy = pts[i + 1].y() - pts[i - 1].y()
+        L = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / L, dx / L
+        p, q = pts[i], pts[i + 1]
+        w0, w1 = hw[i], hw[i + 1]
+        if i == 0:
+            pv = pts[0]
+        else:
+            pv = pts[i - 1]
+        if i == n - 2:
+            nv = pts[-1]
+        else:
+            nv = pts[i + 2]
+        e1x, e1y = p.x() - pv.x(), p.y() - pv.y()
+        e2x, e2y = nv.x() - q.x(), nv.y() - q.y()
+        l1 = math.hypot(e1x, e1y) or 1.0
+        l2 = math.hypot(e2x, e2y) or 1.0
+        cross_i = (e1x * e2y - e1y * e2x) / (l1 * l2)
+        _ex_add_quad(path, [
+            QPointF(p.x() + nx * w0, p.y() + ny * w0),
+            QPointF(q.x() + nx * w1, q.y() + ny * w1),
+            QPointF(q.x() - nx * w1, q.y() - ny * w1),
+            QPointF(p.x() - nx * w0, p.y() - ny * w0),
+        ])
+        # уплотнитель только на РЕЗКОМ угле (порог высокий — дрожь руки не даёт «бисер»)
+        r = max(w0, w1) * 0.78
+        if r > 0.6 and abs(cross_i) > 0.30:
+            _ex_add_circle(path, q, r)
+    _ex_add_circle(path, pts[0], hw[0])
+    _ex_add_circle(path, pts[-1], hw[-1])
+    return path
+
+
+def _ex_centerline_path(points):
+    """Гладкая центральная линия (для hit-test и ластика) — quad через середины."""
+    pts = _ex_smooth_pts(points, 1)
+    n = len(pts)
+    path = QPainterPath()
+    if n == 0:
+        return path
+    if n == 1:
+        path.addEllipse(pts[0], 1.0, 1.0)
+        return path
+    path.moveTo(pts[0])
+    for i in range(1, n - 1):
+        mid = QPointF((pts[i].x() + pts[i + 1].x()) / 2.0,
+                      (pts[i].y() + pts[i + 1].y()) / 2.0)
+        path.quadTo(pts[i], mid)
+    path.lineTo(pts[-1])
+    return path
+
+
+def _ex_pen_stroke_path_cached(item):
+    """Готовый контур штриха кэшируется в item['stroke_path'].
+
+    Точки пера после отпускания кнопки не меняются, а v2.5 пересобирала контур
+    (тысячи quad-ов) на КАЖДОЙ перерисовке — при rebuild_canvas после undo/redo
+    и удаления это заметные лаги. Живой штрих не кэшируется: точки ещё растут.
+    """
+    path = item.get('stroke_path')
+    if path is None:
+        path = _ex_pen_stroke_path(item.get('points') or [], item['width'], final=True)
+        item['stroke_path'] = path
+    return path
+
+
+def _ex_draw_pen_item(painter, item):
+    painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+    pts = item.get('points') or []
+    if len(pts) < 2:
+        if 'path' in item:
+            pen = QPen(item['color'], item['width'], Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawPath(item['path'])
+        return
+    painter.setPen(Qt.NoPen)
+    painter.setBrush(item['color'])
+    if item.get('live'):
+        painter.drawPath(_ex_pen_stroke_path(pts, item['width'], final=False))
+    else:
+        painter.drawPath(_ex_pen_stroke_path_cached(item))
+
+
+def _ex_rough_line(p0, p1, rng, amp=1.3, bow=None):
+    """Слегка волнистая линия: кубическая Безье с дрожащими контрольными точками."""
+    path = QPainterPath()
+    sx = p0.x() + rng.uniform(-amp, amp)
+    sy = p0.y() + rng.uniform(-amp, amp)
+    ex = p1.x() + rng.uniform(-amp, amp)
+    ey = p1.y() + rng.uniform(-amp, amp)
+    path.moveTo(sx, sy)
+    dx, dy = p1.x() - p0.x(), p1.y() - p0.y()
+    L = math.hypot(dx, dy)
+    if L < 12:
+        path.lineTo(ex, ey)
+        return path
+    if bow is None:
+        bow = max(1.0, L * 0.015)
+    nx, ny = -dy / L, dx / L
+    c1 = QPointF(sx + dx * 0.33 + nx * rng.uniform(-bow, bow),
+                 sy + dy * 0.33 + ny * rng.uniform(-bow, bow))
+    c2 = QPointF(sx + dx * 0.66 + nx * rng.uniform(-bow, bow),
+                 sy + dy * 0.66 + ny * rng.uniform(-bow, bow))
+    path.cubicTo(c1, c2, QPointF(ex, ey))
+    return path
+
+
+def _ex_rough_rect_path(tl, br, rng, amp=1.8):
+    corners = []
+    for (x, y) in ((tl.x(), tl.y()), (br.x(), tl.y()), (br.x(), br.y()), (tl.x(), br.y())):
+        corners.append(QPointF(x + rng.uniform(-amp, amp), y + rng.uniform(-amp, amp)))
+    path = QPainterPath()
+    for i in range(4):
+        path.addPath(_ex_rough_line(corners[i], corners[(i + 1) % 4], rng, amp=amp * 0.7))
+    return path
+
+
+def _ex_rough_ellipse_path(p0, p1, rng):
+    cx = (p0.x() + p1.x()) / 2.0
+    cy = (p0.y() + p1.y()) / 2.0
+    rx = abs(p1.x() - p0.x()) / 2.0
+    ry = abs(p1.y() - p0.y()) / 2.0
+    path = QPainterPath()
+    if rx < 2.0 or ry < 2.0:
+        path.addEllipse(QPointF(cx, cy), max(rx, 1.0), max(ry, 1.0))
+        return path
+    start = rng.uniform(0, 2 * math.pi)
+    overrun = rng.uniform(0.05, 0.15)
+    steps = 22
+    rj1 = rng.uniform(-0.03, 0.03)
+    rj2 = rng.uniform(-0.02, 0.02)
+    rot1 = rng.uniform(0, 2 * math.pi)
+    pts = []
+    for i in range(steps + 2):
+        t = start + (2 * math.pi + overrun) * i / steps
+        wob = 1.0 + rj1 * math.sin(2 * t + rot1) + rj2 * math.sin(3 * t)
+        pts.append(QPointF(cx + math.cos(t) * rx * wob, cy + math.sin(t) * ry * wob))
+    path.moveTo((pts[0].x() + pts[1].x()) / 2.0, (pts[0].y() + pts[1].y()) / 2.0)
+    for i in range(1, len(pts)):
+        cur = pts[i]
+        nxt = pts[(i + 1) % len(pts)]
+        path.quadTo(cur, QPointF((cur.x() + nxt.x()) / 2.0, (cur.y() + nxt.y()) / 2.0))
+    path.closeSubpath()
+    return path
+
+
+def _ex_draw_rough_shape(painter, item):
+    """Рукописная фигура: два прохода с разными seed (стиль rough.js)."""
+    st = item.get('shape_type')
+    color = item['color']
+    w = item['width']
+    p0 = item.get('p0')
+    p1 = item.get('p1')
+    painter.setBrush(Qt.NoBrush)
+    painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+    pen = QPen(color, w, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    painter.setPen(pen)
+    if p0 is None or p1 is None:
+        painter.drawPath(item['path'])
+        return
+    seed = item.get('seed', 1)
+
+    def _shift_pt(p, k):
+        if k == 0:
+            return p
+        r = _ex_rng(seed + 7717)
+        return QPointF(p.x() + r.uniform(-1.6, 1.6), p.y() + r.uniform(-1.6, 1.6))
+
+    if st == 'line':
+        for k in range(1):
+            painter.drawPath(_ex_rough_line(_shift_pt(p0, k), _shift_pt(p1, k),
+                                            _ex_rng(seed + k * 7919),
+                                            amp=1.3 if k == 0 else 2.0))
+    elif st == 'arrow':
+        for k in range(1):
+            painter.drawPath(_ex_rough_line(_shift_pt(p0, k), _shift_pt(p1, k),
+                                            _ex_rng(seed + k * 7919),
+                                            amp=1.3 if k == 0 else 2.0))
+        ang = math.atan2(p1.y() - p0.y(), p1.x() - p0.x())
+        size = max(11.0, w * 4.0)
+        for k in range(1):
+            rng = _ex_rng(seed + 104729 + k * 7919)
+            spread = math.pi / 7 + rng.uniform(-0.05, 0.05)
+            sz = size * (1.0 + rng.uniform(-0.08, 0.08))
+            a1 = ang + math.pi - spread
+            a2 = ang + math.pi + spread
+            hpath = QPainterPath()
+            hpath.moveTo(p1.x() + math.cos(a1) * sz + rng.uniform(-1.0, 1.0),
+                         p1.y() + math.sin(a1) * sz + rng.uniform(-1.0, 1.0))
+            hpath.lineTo(p1.x() + rng.uniform(-0.8, 0.8), p1.y() + rng.uniform(-0.8, 0.8))
+            hpath.lineTo(p1.x() + math.cos(a2) * sz + rng.uniform(-1.0, 1.0),
+                         p1.y() + math.sin(a2) * sz + rng.uniform(-1.0, 1.0))
+            painter.drawPath(hpath)
+    elif st == 'rect':
+        rect = QRectF(p0, p1).normalized()
+        for k in range(1):
+            s0 = _shift_pt(rect.topLeft(), k)
+            s1 = _shift_pt(rect.bottomRight(), k)
+            painter.drawPath(_ex_rough_rect_path(s0, s1, _ex_rng(seed + k * 7919),
+                                                 amp=1.8 if k == 0 else 2.6))
+    elif st == 'ellipse':
+        for k in range(1):
+            if k == 0:
+                e0, e1 = p0, p1
+            else:
+                r = _ex_rng(seed + 31337)
+                e0 = QPointF(p0.x() + r.uniform(-1.8, 1.8), p0.y() + r.uniform(-1.8, 1.8))
+                e1 = QPointF(p1.x() + r.uniform(-1.8, 1.8), p1.y() + r.uniform(-1.8, 1.8))
+            painter.drawPath(_ex_rough_ellipse_path(e0, e1, _ex_rng(seed + k * 7919)))
+    else:
+        painter.drawPath(item['path'])
+
+
 class OverlayWidget(QWidget):
     def __init__(self, main_window):
         super().__init__()
@@ -198,30 +670,32 @@ class OverlayWidget(QWidget):
         else:
             event.accept()
 
-    def save_state(self):
-        if len(self.undo_stack) >= 20:
-            self.undo_stack.pop(0)
-        drawings_copy = []
+    def _clone_drawings(self):
+        """Снапшот рисунков для undo/redo.
+
+        pixmap НЕ копируется: QPixmap разделяемый (copy-on-write), и in-place
+        его никто не меняет (код только ПРИСВАИВАЕТ новый pixmap). Глубокое
+        .copy() у v2.5 на каждой вставленной картинке 1500x1500 — это ~9 МБ
+        копирования на каждый клик (save_state вызывается в mousePress).
+        """
+        out = []
         for d in self.drawings:
             nd = d.copy()
             if 'path' in nd: nd['path'] = QPainterPath(nd['path'])
-            if 'pixmap' in nd: nd['pixmap'] = nd['pixmap'].copy()
             if 'points' in nd: nd['points'] = [QPointF(p) for p in nd['points']]
-            drawings_copy.append(nd)
-        self.undo_stack.append({'drawings': drawings_copy})
+            out.append(nd)
+        return out
+
+    def save_state(self):
+        if len(self.undo_stack) >= 20:
+            self.undo_stack.pop(0)
+        self.undo_stack.append({'drawings': self._clone_drawings()})
         self.redo_stack.clear()
 
     def undo(self):
         self.commit_text()
         if self.undo_stack:
-            current_drawings = []
-            for d in self.drawings:
-                nd = d.copy()
-                if 'path' in nd: nd['path'] = QPainterPath(nd['path'])
-                if 'pixmap' in nd: nd['pixmap'] = nd['pixmap'].copy()
-                if 'points' in nd: nd['points'] = [QPointF(p) for p in nd['points']]
-                current_drawings.append(nd)
-            self.redo_stack.append({'drawings': current_drawings})
+            self.redo_stack.append({'drawings': self._clone_drawings()})
 
             state = self.undo_stack.pop()
             self.drawings = state['drawings']
@@ -232,14 +706,7 @@ class OverlayWidget(QWidget):
 
     def redo(self):
         if self.redo_stack:
-            current_drawings = []
-            for d in self.drawings:
-                nd = d.copy()
-                if 'path' in nd: nd['path'] = QPainterPath(nd['path'])
-                if 'pixmap' in nd: nd['pixmap'] = nd['pixmap'].copy()
-                if 'points' in nd: nd['points'] = [QPointF(p) for p in nd['points']]
-                current_drawings.append(nd)
-            self.undo_stack.append({'drawings': current_drawings})
+            self.undo_stack.append({'drawings': self._clone_drawings()})
 
             state = self.redo_stack.pop()
             self.drawings = state['drawings']
@@ -269,6 +736,12 @@ class OverlayWidget(QWidget):
                 if self.tool == "cursor" and not self.laser_mode:
                     return True, -1
                 return True, 1
+            elif msg.message in (0x007E, 0x0218, 0x02B1, 0x031A):
+                # WM_DISPLAYCHANGE (смена конфигурации мониторов) и WM_POWERBROADCAST
+                # (сон/пробуждение; вкл/выкл монитора — после подписки
+                # PowerSettingRegisterNotification). DWM после этого перестраивает
+                # z-order, поэтому нужен усиленный тоггл, а не повторный TOPMOST.
+                self.main_window.restore_topmost_aggressive()
         return super().nativeEvent(eventType, message)
 
     def set_tool(self, tool):
@@ -495,30 +968,28 @@ class OverlayWidget(QWidget):
             path.moveTo(start)
             path.lineTo(end)
             angle = math.atan2(end.y() - start.y(), end.x() - start.x())
-            arrow_size = max(10, pen_width * 4)
-            p1 = QPointF(end.x() - arrow_size * math.cos(angle - math.pi / 6),
-                         end.y() - arrow_size * math.sin(angle - math.pi / 6))
-            p2 = QPointF(end.x() - arrow_size * math.cos(angle + math.pi / 6),
-                         end.y() - arrow_size * math.sin(angle + math.pi / 6))
-            path.addPolygon(QPolygonF([QPointF(end), p1, p2]))
+            arrow_size = max(11, pen_width * 4)
+            p1 = QPointF(end.x() - arrow_size * math.cos(angle - math.pi / 7),
+                         end.y() - arrow_size * math.sin(angle - math.pi / 7))
+            p2 = QPointF(end.x() - arrow_size * math.cos(angle + math.pi / 7),
+                         end.y() - arrow_size * math.sin(angle + math.pi / 7))
+            path.moveTo(p1)
+            path.lineTo(end)
+            path.lineTo(p2)
         return path
 
     def draw_item_on_painter(self, painter, item):
         if item['type'] == 'pen':
-            pen = QPen(item['color'], item['width'], Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            painter.drawPath(item['path'])
+            _ex_draw_pen_item(painter, item)
         elif item['type'] == 'shape':
-            pen = QPen(item['color'], item['width'], Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            painter.setPen(pen)
-            if item['shape_type'] == 'arrow' or item.get('fill', False):
-                painter.setBrush(item['color'])
-            else:
-                painter.setBrush(Qt.NoBrush)
             painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            painter.drawPath(item['path'])
+            if item.get('fill', False) or item.get('is_ai_bg', False):
+                pen = QPen(item['color'], item['width'], Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                painter.setPen(pen)
+                painter.setBrush(item['color'])
+                painter.drawPath(item['path'])
+            else:
+                _ex_draw_rough_shape(painter, item)
         elif item['type'] == 'eraser':
             painter.setCompositionMode(QPainter.CompositionMode_Clear)
             pen = QPen(Qt.white, item['width'], Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
@@ -642,18 +1113,18 @@ class OverlayWidget(QWidget):
 
     def get_pixel_color(self, global_pos):
         try:
-            hdc = ctypes.windll.user32.GetDC(0)
+            hdc = _u32.GetDC(None)
             r_sum, g_sum, b_sum = 0, 0, 0
             count = 0
             for x in range(global_pos.x() - 1, global_pos.x() + 2):
                 for y in range(global_pos.y() - 1, global_pos.y() + 2):
-                    color_ref = ctypes.windll.gdi32.GetPixel(hdc, x, y)
+                    color_ref = _gdi32.GetPixel(hdc, x, y)
                     if color_ref != 0xFFFFFFFF:
                         r_sum += color_ref & 0xFF
                         g_sum += (color_ref >> 8) & 0xFF
                         b_sum += (color_ref >> 16) & 0xFF
                         count += 1
-            ctypes.windll.user32.ReleaseDC(0, hdc)
+            _u32.ReleaseDC(None, hdc)
             if count > 0:
                 return QColor(r_sum // count, g_sum // count, b_sum // count, 255)
         except Exception:
@@ -809,16 +1280,22 @@ class OverlayWidget(QWidget):
             self.save_state()
             self.deselect_all_images()
 
-            path = QPainterPath()
-            path.moveTo(event.pos())
             item_type = self.tool
             width = self.eraser_width if self.tool == "eraser" else self.pen_width
+            path = QPainterPath()
+            path.moveTo(event.pos())
             self.current_item = {'type': item_type, 'color': self.current_color, 'width': width, 'path': path,
                                  'layer': 'middle'}
-            p = QPainter(self.canvas)
-            p.setRenderHint(QPainter.Antialiasing)
-            self.draw_item_on_painter(p, self.current_item)
-            p.end()
+            if item_type == 'pen':
+                # Excalidraw-перо: сырые точки, рендер с переменной толщиной
+                self.current_item['points'] = [QPointF(event.pos())]
+                self.current_item['seed'] = random.randrange(1 << 30)
+                self.current_item['live'] = True
+            else:
+                p = QPainter(self.canvas)
+                p.setRenderHint(QPainter.Antialiasing)
+                self.draw_item_on_painter(p, self.current_item)
+                p.end()
             self.update()
 
         elif self.tool == "shape":
@@ -828,7 +1305,9 @@ class OverlayWidget(QWidget):
             self.shape_end_pos = event.pos()
             path = self.get_shape_path(self.shape_type, self.shape_start_pos, self.shape_end_pos, self.pen_width)
             self.current_item = {'type': 'shape', 'shape_type': self.shape_type, 'color': self.current_color,
-                                 'width': self.pen_width, 'path': path, 'layer': 'middle'}
+                                 'width': self.pen_width, 'path': path, 'layer': 'middle',
+                                 'p0': QPointF(self.shape_start_pos), 'p1': QPointF(self.shape_end_pos),
+                                 'seed': random.randrange(1 << 30)}
             self.update()
 
         elif self.tool == "screenshot":
@@ -1124,7 +1603,7 @@ class OverlayWidget(QWidget):
         if self.is_hidden and self.tool != "screenshot": return
 
         if self.current_item:
-            if self.current_item['type'] in ('pen', 'eraser'):
+            if self.current_item['type'] == 'eraser':
                 self.current_item['path'].lineTo(event.pos())
                 p = QPainter(self.canvas)
                 p.setRenderHint(QPainter.Antialiasing)
@@ -1134,10 +1613,20 @@ class OverlayWidget(QWidget):
                 rect = QRect(self.last_pos if self.last_pos else event.pos(), event.pos()).normalized()
                 self.update(rect.adjusted(-padding, -padding, padding, padding))
                 self.last_pos = event.pos()
+            elif self.current_item['type'] == 'pen':
+                pts = self.current_item.setdefault('points', [])
+                pt = QPointF(event.pos())
+                if not pts or math.hypot(pt.x() - pts[-1].x(), pt.y() - pts[-1].y()) >= 1.2:
+                    pts.append(pt)
+                    padding = int(self.current_item['width'] * 2 + 14)
+                    rect = QRect(self.last_pos if self.last_pos else event.pos(), event.pos()).normalized()
+                    self.update(rect.adjusted(-padding, -padding, padding, padding))
+                self.last_pos = event.pos()
             elif self.current_item['type'] == 'shape':
                 self.shape_end_pos = event.pos()
                 self.current_item['path'] = self.get_shape_path(self.current_item['shape_type'], self.shape_start_pos,
                                                                 self.shape_end_pos, self.pen_width)
+                self.current_item['p1'] = QPointF(event.pos())
                 self.update()
         elif self.screenshot_start_pos is not None:
             self.screenshot_end_pos = event.pos()
@@ -1365,7 +1854,11 @@ class OverlayWidget(QWidget):
                 self.update()
                 return
             self.drawings.append(self.current_item)
-            if self.current_item['type'] == 'shape':
+            if self.current_item['type'] in ('shape', 'pen'):
+                if self.current_item['type'] == 'pen':
+                    self.current_item['live'] = False
+                    if self.current_item.get('points'):
+                        self.current_item['path'] = _ex_centerline_path(self.current_item['points'])
                 p = QPainter(self.canvas)
                 p.setRenderHint(QPainter.Antialiasing)
                 self.draw_item_on_painter(p, self.current_item)
@@ -2065,12 +2558,13 @@ class MainWindow(QMainWindow):
         self.btn_collapse.installEventFilter(self)
         self.drag_moved = False
         self.drag_start_pos = QPoint()
+        self.drag_start_global = QPoint()
         row1_layout.addWidget(self.btn_collapse)
 
         self.app_title = QLabel("Paste Pen", self.toolbar_widget)
         self.app_title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.app_title.setFixedHeight(32)
-        self.app_title.setToolTip("v.2.4")
+        self.app_title.setToolTip("v.2.5")
         row1_layout.addWidget(self.app_title)
         top_v_layout.addLayout(row1_layout)
 
@@ -2215,36 +2709,164 @@ class MainWindow(QMainWindow):
         self.force_topmost_all()
         self.topmost_timer = QTimer(self)
         self.topmost_timer.timeout.connect(self.force_topmost_all)
-        self.topmost_timer.start(5000)
+        # 250 мс: заодно мгновенно реагируем на открытие модального диалога
+        # (пока он открыт, оверлей убран с экрана — см. force_topmost_all)
+        self.topmost_timer.start(250)
+
+        # Подписка на вкл/выкл монитора и состояние дисплея: событие приходит
+        # в окно оверлея как WM_POWERBROADCAST и запускает усиленное
+        # восстановление topmost. Регистрируем через user32.
+        self._power_notify_handles = _register_power_notifications(int(self.overlay.winId()))
 
     def focusInEvent(self, event):
         self.force_topmost_all()
         super().focusInEvent(event)
 
-    def force_topmost_all(self):
-        HWND_TOPMOST = -1
-        SWP_NOSIZE = 0x0001
-        SWP_NOMOVE = 0x0002
-        SWP_NOACTIVATE = 0x0010
-        flags = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+    def _active_dialog_widget(self):
+        """Открытый модальный диалог приложения (иначе None).
 
+        Только МОДАЛЬНЫЕ окна: popup-меню намеренно не трогаем — у меню оверлей
+        является родителем (QMenu(self)), и его скрытие спрятало бы само меню.
+        """
         try:
-            foreground_hwnd = ctypes.windll.user32.GetForegroundWindow()
-        except:
-            foreground_hwnd = 0
+            return QApplication.activeModalWidget()
+        except Exception:
+            return None
 
-        for w in (self, self.overlay):
+    def _active_popup_widget(self):
+        """Открытое popup-меню приложения (правый клик по кнопкам), иначе None."""
+        try:
+            return QApplication.activePopupWidget()
+        except Exception:
+            return None
+
+    def force_topmost_all(self):
+        """Держит оба окна поверх всех. Вызывается таймером раз в секунду.
+
+        1) флаг WS_EX_TOPMOST потерян -> ставим немедленно;
+        2) раз в 5 с детерминированный тоггл NOTOPMOST->TOPMOST — на случай,
+           когда флаг формально стоит, но DWM опустил окно под другие
+           topmost-окна (гашение экрана по таймеру простоя).
+        Время берём у time.monotonic(): у v2.5 «раз в 15 тиков» зависело от
+        того, сколько раз таймер вообще успел сработать, и растягивалось.
+        isVisible() не проверяем — флаг должен стоять и у скрытого окна.
+        """
+        dlg = self._active_dialog_widget()
+        if dlg is not None:
+            # Открыт модальный диалог приложения (ошибка/файл/цвет): таймер
+            # ЗАМИРАЕТ. Оверлей не скрываем — рисунки должны оставаться на экране.
+            # Наши окна НЕ трогаем: панель и оверлей тоже topmost, и любой
+            # SetWindowPos(TOPMOST) по ним поднял бы их выше диалога — тогда его
+            # кнопки «не нажимаются» (проверено на живой системе). Диалог при
+            # появлении поднимаем один раз.
+            if not getattr(self, '_dialog_mode', False):
+                self._dialog_mode = True
+                try:
+                    _win_set_topmost(int(dlg.winId()))
+                except Exception:
+                    pass
+            # на время диалога оверлей пропускает мышь сквозь себя (рисунки видны,
+            # а клик доходит до диалога и до остальных окон системы)
+            try:
+                _win_set_click_through(int(self.overlay.winId()), True)
+            except Exception:
+                pass
+            return
+        if getattr(self, '_dialog_mode', False):
+            # диалог закрылся — снова работаем: снимаем «сквозную» прозрачность,
+            # возвращаем порядок «панель выше оверлея» и продолжаем следить
+            self._dialog_mode = False
+            self.overlay.show()
+            now = time.monotonic()
+            self._topmost_toggled_at = now
+            self._zcheck_at = now
+            for w in (self.overlay, self):
+                try:
+                    _win_set_topmost(int(w.winId()), toggle=True)
+                except Exception:
+                    pass
+        try:
+            _win_set_click_through(int(self.overlay.winId()), False)
+        except Exception:
+            pass
+        popup = self._active_popup_widget()
+        if popup is not None:
+            # Открыто меню (в т.ч. правым кликом по кнопкам панели). Поднимаем
+            # МЕНЮ, а панель и оверлей не трогаем — иначе они оказываются выше
+            # меню и пункты не читаются/не нажимаются.
+            try:
+                _win_set_topmost(int(popup.winId()))
+            except Exception:
+                pass
+            return
+        now = time.monotonic()
+        toggle = (now - getattr(self, '_topmost_toggled_at', 0.0)) >= 5.0
+        if toggle:
+            self._topmost_toggled_at = now
+        # Порядок важен: оверлей (рисунки и вставленные картинки) поднимаем
+        # первым, панель — вторым, поэтому панель всегда оказывается ВЫШЕ
+        # рисунков и картинок.
+        for w in (self.overlay, self):
             try:
                 hwnd = int(w.winId())
-                if hwnd == foreground_hwnd:
-                    continue
-                ctypes.windll.user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
+            except Exception:
+                continue
+            if toggle or not _win_is_topmost(hwnd):
+                _win_set_topmost(hwnd, toggle=toggle)
+
+        # Страховка: сторонние события/DWM могут переставить topmost-окна местами
+        # (флаги одинаковые, а порядок разный) — раз в секунду сверяем z-order.
+        if now - getattr(self, '_zcheck_at', 0.0) >= 1.0:
+            self._zcheck_at = now
+            try:
+                if _z_index(int(self.winId())) > _z_index(int(self.overlay.winId())):
+                    _win_set_topmost(int(self.winId()))
             except Exception:
                 pass
 
     def showEvent(self, event):
         super().showEvent(event)
         self.force_topmost_all()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.ActivationChange and self.isActiveWindow():
+            # Вернули фокус — сразу восстанавливаем TOPMOST, не дожидаясь таймера
+            self.force_topmost_all()
+
+    def restore_topmost_aggressive(self):
+        """Полное восстановление «поверх всех» после сна и вкл/выкл мониторов.
+
+        Одиночный повторный TOPMOST не помогает, когда окно формально осталось
+        в topmost-диапазоне, но оказалось НИЖЕ других topmost-окон: после
+        включения мониторов DWM и другие программы перестраивают z-order.
+        Тоггл NOTOPMOST->TOPMOST поднимает окно на самый верх диапазона.
+        Три прохода (0/400/1200 мс) — на случай, если Windows ещё достраивает
+        окна после пробуждения.
+        """
+        now = time.monotonic()
+        if getattr(self, '_restore_pending_until', 0) > now:
+            return
+        self._restore_pending_until = now + 3.4
+        for delay in (0, 400, 1200, 3000):
+            QTimer.singleShot(delay, self._toggle_topmost_once)
+
+    def _toggle_topmost_once(self):
+        for w in (self.overlay, self):     # панель поднимается последней
+            try:
+                hwnd = int(w.winId())
+            except Exception:
+                continue
+            _win_set_topmost(hwnd, toggle=True)
+        self._topmost_toggled_at = time.monotonic()
+        # Если конфигурация мониторов менялась, пока экраны были выключены,
+        # оверлей мог остаться со старой геометрией — пересинхронизируем.
+        try:
+            screen = QApplication.primaryScreen()
+            if screen and self.overlay.geometry() != screen.virtualGeometry():
+                self.overlay.setGeometry(screen.virtualGeometry())
+        except Exception:
+            pass
 
     def _qimage_to_numpy(self, qimg):
         w, h = qimg.width(), qimg.height()
@@ -2811,13 +3433,18 @@ class MainWindow(QMainWindow):
                 if event.button() == Qt.LeftButton:
                     self.drag_pos = event.globalPos() - self.frameGeometry().topLeft()
                     self.drag_start_pos = event.pos()
+                    # Порог «тащат / кликнули» считаем в ГЛОБАЛЬНЫХ координатах:
+                    # панель едет за курсором, поэтому в локальных координатах
+                    # кнопки смещение почти нулевое, порог 5 px не набирался, и
+                    # перетаскивание засчитывалось как клик (панель сворачивалась).
+                    self.drag_start_global = event.globalPos()
                     self.drag_moved = False
                     self.btn_collapse.grabMouse()
                     return True
 
             elif event.type() == QEvent.MouseMove:
                 if self.drag_pos is not None:
-                    if (event.pos() - self.drag_start_pos).manhattanLength() > 5:
+                    if (event.globalPos() - self.drag_start_global).manhattanLength() > 5:
                         self.drag_moved = True
                     self.move(event.globalPos() - self.drag_pos)
                     return True
@@ -2949,9 +3576,13 @@ class MainWindow(QMainWindow):
         self.tray_icon.hide()
         self.close()
 
+        _unregister_power_notifications(getattr(self, '_power_notify_handles', None))
+        self._power_notify_handles = []
+
         global app_mutex
         if app_mutex:
-            ctypes.windll.kernel32.CloseHandle(app_mutex)
+            # HANDLE 64-битный: без прототипа CloseHandle получал усечённое значение
+            _k32.CloseHandle(app_mutex)
             app_mutex = None
 
         QApplication.quit()
@@ -2967,8 +3598,8 @@ app_mutex = None
 
 if __name__ == "__main__":
     mutex_name = "Paste_Pen_App_Single_Instance_Mutex"
-    app_mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
-    if ctypes.windll.kernel32.GetLastError() == 183:
+    app_mutex = _k32.CreateMutexW(None, False, mutex_name)
+    if _k32.GetLastError() == 183:
         app = QApplication(sys.argv)
         QMessageBox.information(None, "Paste Pen", "Программа уже запущена.")
         sys.exit(0)
