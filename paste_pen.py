@@ -2689,9 +2689,9 @@ class MainWindow(QMainWindow):
         self.force_topmost_all()
         self.topmost_timer = QTimer(self)
         self.topmost_timer.timeout.connect(self.force_topmost_all)
-        # 250 мс: заодно мгновенно реагируем на открытие модального диалога
+        # 500 мс: заодно мгновенно реагируем на открытие модального диалога
         # (пока он открыт, оверлей убран с экрана — см. force_topmost_all)
-        self.topmost_timer.start(250)
+        self.topmost_timer.start(500)
 
         # Подписка на вкл/выкл монитора и состояние дисплея: событие приходит
         # в окно оверлея как WM_POWERBROADCAST и запускает усиленное
