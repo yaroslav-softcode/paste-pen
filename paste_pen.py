@@ -528,7 +528,7 @@ def _ex_rough_ellipse_path(p0, p1, rng):
 
 
 def _ex_draw_rough_shape(painter, item):
-    """Рукописная фигура: два прохода с разными seed (стиль rough.js)."""
+    """Рукописная фигура: ОДИН штрих с рукописной дрожью (стиль rough.js)."""
     st = item.get('shape_type')
     color = item['color']
     w = item['width']
@@ -543,53 +543,30 @@ def _ex_draw_rough_shape(painter, item):
         return
     seed = item.get('seed', 1)
 
-    def _shift_pt(p, k):
-        if k == 0:
-            return p
-        r = _ex_rng(seed + 7717)
-        return QPointF(p.x() + r.uniform(-1.6, 1.6), p.y() + r.uniform(-1.6, 1.6))
-
     if st == 'line':
-        for k in range(1):
-            painter.drawPath(_ex_rough_line(_shift_pt(p0, k), _shift_pt(p1, k),
-                                            _ex_rng(seed + k * 7919),
-                                            amp=1.3 if k == 0 else 2.0))
+        painter.drawPath(_ex_rough_line(p0, p1, _ex_rng(seed), amp=1.3))
     elif st == 'arrow':
-        for k in range(1):
-            painter.drawPath(_ex_rough_line(_shift_pt(p0, k), _shift_pt(p1, k),
-                                            _ex_rng(seed + k * 7919),
-                                            amp=1.3 if k == 0 else 2.0))
+        painter.drawPath(_ex_rough_line(p0, p1, _ex_rng(seed), amp=1.3))
         ang = math.atan2(p1.y() - p0.y(), p1.x() - p0.x())
         size = max(11.0, w * 4.0)
-        for k in range(1):
-            rng = _ex_rng(seed + 104729 + k * 7919)
-            spread = math.pi / 7 + rng.uniform(-0.05, 0.05)
-            sz = size * (1.0 + rng.uniform(-0.08, 0.08))
-            a1 = ang + math.pi - spread
-            a2 = ang + math.pi + spread
-            hpath = QPainterPath()
-            hpath.moveTo(p1.x() + math.cos(a1) * sz + rng.uniform(-1.0, 1.0),
-                         p1.y() + math.sin(a1) * sz + rng.uniform(-1.0, 1.0))
-            hpath.lineTo(p1.x() + rng.uniform(-0.8, 0.8), p1.y() + rng.uniform(-0.8, 0.8))
-            hpath.lineTo(p1.x() + math.cos(a2) * sz + rng.uniform(-1.0, 1.0),
-                         p1.y() + math.sin(a2) * sz + rng.uniform(-1.0, 1.0))
-            painter.drawPath(hpath)
+        rng = _ex_rng(seed + 104729)
+        spread = math.pi / 7 + rng.uniform(-0.05, 0.05)
+        sz = size * (1.0 + rng.uniform(-0.08, 0.08))
+        a1 = ang + math.pi - spread
+        a2 = ang + math.pi + spread
+        hpath = QPainterPath()
+        hpath.moveTo(p1.x() + math.cos(a1) * sz + rng.uniform(-1.0, 1.0),
+                     p1.y() + math.sin(a1) * sz + rng.uniform(-1.0, 1.0))
+        hpath.lineTo(p1.x() + rng.uniform(-0.8, 0.8), p1.y() + rng.uniform(-0.8, 0.8))
+        hpath.lineTo(p1.x() + math.cos(a2) * sz + rng.uniform(-1.0, 1.0),
+                     p1.y() + math.sin(a2) * sz + rng.uniform(-1.0, 1.0))
+        painter.drawPath(hpath)
     elif st == 'rect':
         rect = QRectF(p0, p1).normalized()
-        for k in range(1):
-            s0 = _shift_pt(rect.topLeft(), k)
-            s1 = _shift_pt(rect.bottomRight(), k)
-            painter.drawPath(_ex_rough_rect_path(s0, s1, _ex_rng(seed + k * 7919),
-                                                 amp=1.8 if k == 0 else 2.6))
+        painter.drawPath(_ex_rough_rect_path(rect.topLeft(), rect.bottomRight(),
+                                             _ex_rng(seed), amp=1.8))
     elif st == 'ellipse':
-        for k in range(1):
-            if k == 0:
-                e0, e1 = p0, p1
-            else:
-                r = _ex_rng(seed + 31337)
-                e0 = QPointF(p0.x() + r.uniform(-1.8, 1.8), p0.y() + r.uniform(-1.8, 1.8))
-                e1 = QPointF(p1.x() + r.uniform(-1.8, 1.8), p1.y() + r.uniform(-1.8, 1.8))
-            painter.drawPath(_ex_rough_ellipse_path(e0, e1, _ex_rng(seed + k * 7919)))
+        painter.drawPath(_ex_rough_ellipse_path(p0, p1, _ex_rng(seed)))
     else:
         painter.drawPath(item['path'])
 
@@ -1086,24 +1063,6 @@ class OverlayWidget(QWidget):
                 if poly.containsPoint(pos, Qt.OddEvenFill):
                     return True
         return False
-
-    def show_text_font_menu(self, item, pos):
-        menu = QMenu(self)
-        menu.setStyleSheet(self.main_window.styleSheet())
-        tr = self.main_window.translations[self.main_window.lang]
-
-        font_submenu = menu.addMenu(tr["font"])
-        current_font = item.get('font_family', 'Arial')
-
-        db = QFontDatabase()
-        for family in db.families():
-            act = QAction(family, font_submenu)
-            act.setCheckable(True)
-            act.setChecked(family == current_font)
-            act.triggered.connect(lambda checked, f=family, it=item: self.change_text_font(it, f))
-            font_submenu.addAction(act)
-
-        menu.exec_(self.mapToGlobal(pos))
 
     def change_text_font(self, item, font_family):
         self.save_state()
@@ -1881,6 +1840,8 @@ class OverlayWidget(QWidget):
 
             if self.active_folder_item and (event.modifiers() & Qt.ShiftModifier):
                 delta = event.angleDelta().y()
+                if delta == 0:
+                    return
                 if delta > 0:
                     self.folder_index = (self.folder_index - 1) % len(self.folder_files)
                 else:
@@ -1978,8 +1939,10 @@ class OverlayWidget(QWidget):
         if pixmap.isNull(): return
         if pixmap.width() > 1500 or pixmap.height() > 1500:
             pixmap = pixmap.scaled(1500, 1500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        x = self.width() // 2 - pixmap.width() // 2
-        y = self.height() // 2 - pixmap.height() // 2
+        screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        geo = screen.geometry()
+        x = geo.x() + geo.width() // 2 - pixmap.width() // 2
+        y = geo.y() + geo.height() // 2 - pixmap.height() // 2
         w = pixmap.width()
         h = pixmap.height()
         points = [QPointF(x, y), QPointF(x + w, y), QPointF(x + w, y + h), QPointF(x, y + h)]
@@ -2017,8 +1980,10 @@ class OverlayWidget(QWidget):
 
         self.folder_pixmaps[0] = pixmap
 
-        x = self.width() // 2 - pixmap.width() // 2
-        y = self.height() // 2 - pixmap.height() // 2
+        screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        geo = screen.geometry()
+        x = geo.x() + geo.width() // 2 - pixmap.width() // 2
+        y = geo.y() + geo.height() // 2 - pixmap.height() // 2
         w = pixmap.width()
         h = pixmap.height()
         points = [QPointF(x, y), QPointF(x + w, y), QPointF(x + w, y + h), QPointF(x, y + h)]
@@ -2097,6 +2062,21 @@ class MainWindow(QMainWindow):
         self.shortcut_del.activated.connect(self.overlay.delete_selected_item)
         self.shortcut_bsp = QShortcut("Backspace", self)
         self.shortcut_bsp.activated.connect(self.overlay.delete_selected_item)
+
+        # Хоткеи отмены/повтора: Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z
+        self.shortcut_undo = QShortcut(QKeySequence(QKeySequence.Undo), self)
+        self.shortcut_undo.activated.connect(self.overlay.undo)
+        self.shortcut_redo = QShortcut(QKeySequence(QKeySequence.Redo), self)
+        self.shortcut_redo.activated.connect(self.overlay.redo)
+        self.shortcut_redo2 = QShortcut("Ctrl+Shift+Z", self)
+        self.shortcut_redo2.activated.connect(self.overlay.redo)
+        # Те же для окна оверлея — при рисовании фокус уходит на него
+        self.sc_undo_ov = QShortcut(QKeySequence(QKeySequence.Undo), self.overlay)
+        self.sc_undo_ov.activated.connect(self.overlay.undo)
+        self.sc_redo_ov = QShortcut(QKeySequence(QKeySequence.Redo), self.overlay)
+        self.sc_redo_ov.activated.connect(self.overlay.redo)
+        self.sc_redo2_ov = QShortcut("Ctrl+Shift+Z", self.overlay)
+        self.sc_redo2_ov.activated.connect(self.overlay.redo)
 
         self.translations = {
             "RU": {
@@ -2564,7 +2544,7 @@ class MainWindow(QMainWindow):
         self.app_title = QLabel("Paste Pen", self.toolbar_widget)
         self.app_title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.app_title.setFixedHeight(32)
-        self.app_title.setToolTip("v.2.5")
+        self.app_title.setToolTip("v.2.5-tf1")
         row1_layout.addWidget(self.app_title)
         top_v_layout.addLayout(row1_layout)
 
@@ -2709,9 +2689,9 @@ class MainWindow(QMainWindow):
         self.force_topmost_all()
         self.topmost_timer = QTimer(self)
         self.topmost_timer.timeout.connect(self.force_topmost_all)
-        # 500 мс: заодно мгновенно реагируем на открытие модального диалога
+        # 250 мс: заодно мгновенно реагируем на открытие модального диалога
         # (пока он открыт, оверлей убран с экрана — см. force_topmost_all)
-        self.topmost_timer.start(500)
+        self.topmost_timer.start(250)
 
         # Подписка на вкл/выкл монитора и состояние дисплея: событие приходит
         # в окно оверлея как WM_POWERBROADCAST и запускает усиленное
@@ -2739,6 +2719,23 @@ class MainWindow(QMainWindow):
             return QApplication.activePopupWidget()
         except Exception:
             return None
+
+    def _active_tooltip_widget(self):
+        """Видимое окно ПОДСКАЗКИ кнопки (Qt::ToolTip), иначе None.
+
+        Подсказка — тоже popup-окно, но activePopupWidget() его не отдаёт.
+        windowType() сравниваем ТОЧНО (==), а не побитово (&): Qt.Tool=11 и
+        Qt.ToolTip=13 пересекаются по битам (11 & 13 != 0), побитовая проверка
+        цепляла бы саму панель (её тип Qt.Tool) и замораживала её навсегда.
+        """
+        try:
+            for w in QApplication.topLevelWidgets():
+                if (w.isVisible() and w.isWindow()
+                        and w.windowType() == Qt.ToolTip):
+                    return w
+        except Exception:
+            pass
+        return None
 
     def force_topmost_all(self):
         """Держит оба окна поверх всех. Вызывается таймером раз в секунду.
@@ -2789,11 +2786,54 @@ class MainWindow(QMainWindow):
             _win_set_click_through(int(self.overlay.winId()), False)
         except Exception:
             pass
+        tip = self._active_tooltip_widget()
+        if tip is not None:
+            # Подсказка кнопки (26.09.26): таймер ПОЛНОСТЬЮ ОТКЛЮЧАЕМ. Пока она
+            # висит, панель и оверлей не трогаем вовсе — иначе панель выходит
+            # на передний план и накрывает подсказку. Саму подсказку поднимаем
+            # topmost ТОЛЬКО когда она реально просела ниже панели (панель и
+            # оверлей в topmost-диапазоне — неподнятая подсказка скрылась бы
+            # под ними). За исчезновением подсказки следит маленький
+            # сторож-таймер: как только её нет, он возвращает основной.
+            timer = getattr(self, 'topmost_timer', None)
+            if timer is not None and timer.isActive():
+                timer.stop()
+            watchdog = getattr(self, '_tooltip_watchdog', None)
+            if watchdog is None:
+                watchdog = QTimer(self)
+                watchdog.timeout.connect(self.force_topmost_all)
+                self._tooltip_watchdog = watchdog
+            if not watchdog.isActive():
+                watchdog.start(100)
+            try:
+                tip_hwnd = int(tip.winId())
+                panel_hwnd = int(self.winId())
+                if (not _win_is_topmost(tip_hwnd)
+                        or _z_index(tip_hwnd) > _z_index(panel_hwnd)):
+                    _win_set_topmost(tip_hwnd)
+            except Exception:
+                pass
+            popup = self._active_popup_widget()
+            if popup is not None:
+                # вместе с подсказкой может быть открыто меню — держим и его
+                try:
+                    _win_set_topmost(int(popup.winId()))
+                except Exception:
+                    pass
+            return
+        watchdog = getattr(self, '_tooltip_watchdog', None)
+        if watchdog is not None and watchdog.isActive():
+            # подсказка исчезла: сторож передал управление — снова включаем
+            # основной таймер и продолжаем обычное обслуживание
+            watchdog.stop()
+        timer = getattr(self, 'topmost_timer', None)
+        if timer is not None and not timer.isActive():
+            timer.start(250)
         popup = self._active_popup_widget()
         if popup is not None:
-            # Открыто меню (в т.ч. правым кликом по кнопкам панели). Поднимаем
-            # МЕНЮ, а панель и оверлей не трогаем — иначе они оказываются выше
-            # меню и пункты не читаются/не нажимаются.
+            # Открыто меню (правым кликом по кнопкам панели). Поднимаем МЕНЮ,
+            # а панель и оверлей не трогаем — иначе они оказываются выше меню
+            # и пункты не читаются/не нажимаются.
             try:
                 _win_set_topmost(int(popup.winId()))
             except Exception:
@@ -3094,16 +3134,6 @@ class MainWindow(QMainWindow):
             act.triggered.connect(lambda checked, v=val: callback(v))
             btn.addAction(act)
 
-    def populate_font_menu(self):
-        self.font_menu.clear()
-        db = QFontDatabase()
-        for family in db.families():
-            act = QAction(family, self.font_menu)
-            act.setCheckable(True)
-            act.setChecked(family == self.active_text_font_family)
-            act.triggered.connect(lambda checked, f=family: self.set_text_font_family(f))
-            self.font_menu.addAction(act)
-
     def choose_text_font(self, item_to_change=None):
         tr = self.translations[self.lang]
         dialog = QDialog(self)
@@ -3180,18 +3210,11 @@ class MainWindow(QMainWindow):
             self.overlay.update()
         self.force_topmost_all()
 
-    def set_text_font_family(self, family):
-        self.active_text_font_family = family
-        tr = self.translations[self.lang]
-        self.act_font.setText(f"{tr['font']}: {family}")
-        for act in self.font_menu.actions():
-            act.setChecked(act.text() == family)
-
     def open_donate_link(self):
         if self.lang == "RU":
             webbrowser.open("https://boosty.to/yaroslavkhmelev/donate")
         else:
-            webbrowser.open("https://www.donationalerts.com/r/yaroslavkhmelev")
+            webbrowser.open("https://www.donationalerts.com/r/yaroslav_khmelev")
 
     def toggle_language(self):
         order = ["EN", "RU", "ZH", "ES", "PT", "FR", "DE", "IT", "AR", "HI", "JA", "KO"]
@@ -3265,7 +3288,9 @@ class MainWindow(QMainWindow):
             self.btn_donate.setIcon(get_svg_icon(ICON_WON, self.icon_color))
 
         for btn in [self.btn_pen, self.btn_shape, self.btn_text, self.btn_eraser]:
-            for action in btn.actions(): btn.removeAction(action)
+            for action in btn.actions():
+                btn.removeAction(action)
+                action.deleteLater()
         self.setup_menu(self.btn_pen, [2, 5, 10, 20, 30, 50], self.set_pen_width, tr["width"])
         self.setup_menu(self.btn_shape, [(tr["line"], "line"), (tr["rect"], "rect"), (tr["ellipse"], "ellipse"),
                                          (tr["arrow"], "arrow")], self.set_shape_type)
